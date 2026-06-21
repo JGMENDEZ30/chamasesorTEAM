@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
@@ -20,6 +20,7 @@
       --danger-soft: #fee4e2;
     }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body {
       margin: 0;
       color: var(--ink);
@@ -607,7 +608,7 @@
   </style>
 </head>
 <body>
-  <section class="login-screen" id="loginScreen">
+  <section class="login-screen" id="loginScreen" hidden>
     <form class="login-card" id="loginForm">
       <div class="login-logo">
         <div class="login-mark">CA</div>
@@ -616,17 +617,13 @@
           <span>Cuadrantes, turnos y plateria</span>
         </div>
       </div>
-      <div class="field">
-        <label for="responsablePassword">Contraseña de responsable</label>
-        <input id="responsablePassword" type="password" placeholder="Introduce la contraseña" autocomplete="current-password">
-      </div>
-      <button class="btn primary" type="submit">Entrar</button>
+      <button class="btn primary" type="submit">Entrar a ChamAsesor</button>
       <p class="login-error" id="loginError" aria-live="polite"></p>
-      <p class="login-note">Acceso de prueba para responsables. En la version final se podran crear claves por usuario.</p>
+      <p class="login-note">Acceso libre de prueba para responsables.</p>
     </form>
   </section>
 
-  <div class="app" id="appShell" hidden>
+  <div class="app" id="appShell">
     <aside>
       <div class="brand">
         <div class="mark">CQ</div>
@@ -660,7 +657,7 @@
           <button class="btn" id="loadSample">Cargar ejemplo</button>
           <button class="btn primary" id="generateBtn">Generar cuadrante</button>
           <button class="btn print" id="beforePrintBtn">Antes de imprimir</button>
-          <button class="btn" id="logoutBtn">Salir</button>
+          <button class="btn" id="logoutBtn">Inicio</button>
         </div>
       </div>
 
@@ -822,30 +819,18 @@
   </div>
 
   <script>
-    const RESPONSABLE_PASSWORD = 'chamasesor2026';
-
-    function showApp() {
+function showApp() {
       document.getElementById('loginScreen').hidden = true;
       document.getElementById('appShell').hidden = false;
     }
 
     function showLogin() {
-      document.getElementById('appShell').hidden = true;
-      document.getElementById('loginScreen').hidden = false;
-      document.getElementById('responsablePassword').value = '';
-      document.getElementById('responsablePassword').focus();
+      showApp();
     }
 
     document.getElementById('loginForm').addEventListener('submit', (event) => {
       event.preventDefault();
-      const password = document.getElementById('responsablePassword').value.trim();
-      const error = document.getElementById('loginError');
-      if (password === RESPONSABLE_PASSWORD) {
-        error.textContent = '';
-        showApp();
-        return;
-      }
-      error.textContent = 'Contraseña incorrecta.';
+      showApp();
     });
 
     const state = {
@@ -1204,6 +1189,7 @@
     document.getElementById('logoutBtn').addEventListener('click', () => {
       showLogin();
     });
+    showApp();
   </script>
 </body>
 </html>
