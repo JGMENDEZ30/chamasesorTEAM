@@ -1,0 +1,1209 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChamAsesor</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --panel: #ffffff;
+      --ink: #14212b;
+      --muted: #607083;
+      --line: #c9d5e2;
+      --dark: #2f3a40;
+      --accent: #0f766e;
+      --accent-soft: #d9f0ed;
+      --warn: #a16207;
+      --warn-soft: #fef3c7;
+      --danger: #b42318;
+      --danger-soft: #fee4e2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    button, input, select, textarea {
+      font: inherit;
+    }
+    .login-screen {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      background: linear-gradient(135deg, #22313a 0%, #0f766e 100%);
+    }
+    .login-card {
+      width: min(100%, 430px);
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 10px;
+      padding: 24px;
+      color: #fff;
+      background: rgba(255,255,255,.1);
+      box-shadow: 0 18px 48px rgba(15, 23, 42, .24);
+      backdrop-filter: blur(8px);
+    }
+    .login-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .login-mark {
+      width: 50px;
+      height: 50px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.38);
+      border-radius: 12px;
+      background: rgba(255,255,255,.14);
+      font-size: 18px;
+      font-weight: 900;
+    }
+    .login-logo h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1;
+    }
+    .login-logo span {
+      display: block;
+      margin-top: 4px;
+      color: rgba(255,255,255,.76);
+      font-size: 13px;
+    }
+    .login-card label {
+      color: rgba(255,255,255,.82);
+    }
+    .login-card input {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid rgba(255,255,255,.32);
+      border-radius: 7px;
+      padding: 9px 10px;
+      color: #fff;
+      background: rgba(255,255,255,.12);
+    }
+    .login-card input::placeholder {
+      color: rgba(255,255,255,.55);
+    }
+    .login-card .btn {
+      width: 100%;
+      margin-top: 12px;
+    }
+    .login-error {
+      min-height: 20px;
+      margin: 9px 0 0;
+      color: #fee4e2;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .login-note {
+      margin: 14px 0 0;
+      color: rgba(255,255,255,.7);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+    }
+    aside {
+      background: var(--dark);
+      color: #fff;
+      padding: 18px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+    .mark {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 8px;
+      font-weight: 800;
+      background: rgba(255,255,255,.08);
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.15;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      padding: 12px 0;
+      border-top: 1px solid rgba(255,255,255,.14);
+    }
+    .step-num {
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: var(--dark);
+      background: #fff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .step strong {
+      display: block;
+      font-size: 14px;
+    }
+    .step span {
+      display: block;
+      margin-top: 3px;
+      color: rgba(255,255,255,.74);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    main {
+      padding: 18px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .topbar h2 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .btn {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 0 12px;
+      color: var(--ink);
+      background: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn.primary {
+      border-color: var(--accent);
+      color: #fff;
+      background: var(--accent);
+    }
+    .btn.print {
+      border-color: #1d4ed8;
+      color: #fff;
+      background: #1d4ed8;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(300px, 420px) 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .panel h3 {
+      margin: 0;
+      padding: 10px 12px;
+      color: #fff;
+      background: var(--dark);
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+    .panel-body {
+      padding: 12px;
+    }
+    .print-panel .panel-body {
+      display: grid;
+      gap: 10px;
+    }
+    .print-actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .print-option {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #f8fafc;
+    }
+    .print-option strong {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 13px;
+    }
+    .print-option span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .field {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: #344456;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    input[type="file"],
+    input[type="text"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 9px 10px;
+      color: var(--ink);
+      background: #fff;
+    }
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      overflow: hidden;
+    }
+    .segmented button {
+      min-height: 38px;
+      border: 0;
+      background: #fff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .segmented button + button {
+      border-left: 1px solid var(--line);
+    }
+    .segmented button.active {
+      color: #064e3b;
+      background: var(--accent-soft);
+    }
+    .checklist {
+      display: grid;
+      gap: 8px;
+    }
+    .inline-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .silver-builder {
+      margin-top: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #f8fafc;
+    }
+    .silver-grid {
+      display: grid;
+      grid-template-columns: 1.2fr repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+    .silver-grid label {
+      margin: 0;
+      padding: 7px 6px;
+      color: #fff;
+      background: var(--dark);
+      border-radius: 4px;
+      text-align: center;
+      font-size: 10px;
+    }
+    .silver-grid input {
+      min-width: 0;
+      padding: 7px 6px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      font-size: 12px;
+    }
+    .silver-grid select {
+      min-width: 0;
+      padding: 7px 6px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: #fff;
+      font-size: 12px;
+    }
+    .hint {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .check {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #f8fafc;
+      font-size: 13px;
+    }
+    .check input {
+      margin-top: 2px;
+    }
+    .status {
+      display: grid;
+      gap: 8px;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #f8fafc;
+      font-size: 13px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .pill.ok { color: #065f46; background: #d1fae5; }
+    .pill.warn { color: var(--warn); background: var(--warn-soft); }
+    .pill.danger { color: var(--danger); background: var(--danger-soft); }
+    .preview {
+      display: grid;
+      gap: 14px;
+    }
+    .board {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .board-title {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .board-title strong {
+      display: block;
+      font-size: 22px;
+    }
+    .board-title span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .services {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 10px;
+      background: #edf3f8;
+    }
+    .service {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .service h4 {
+      margin: 0;
+      padding: 9px;
+      color: #fff;
+      background: var(--dark);
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .range {
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      min-height: 62px;
+      border-top: 1px solid var(--line);
+    }
+    .range-code {
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: var(--dark);
+      font-weight: 800;
+      font-size: 18px;
+    }
+    .range-body {
+      padding: 7px 9px;
+      background: #f8fafc;
+    }
+    .range-body b {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+    .line {
+      display: grid;
+      grid-template-columns: 78px 1fr;
+      gap: 6px;
+      padding: 2px 0;
+      border-top: 1px solid #dbe5ef;
+      font-size: 13px;
+    }
+    .line:first-of-type { border-top: 0; }
+    .line span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      padding: 7px;
+      border-top: 1px solid var(--line);
+    }
+    .note {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .note span {
+      display: block;
+      padding: 4px 6px;
+      color: #fff;
+      background: var(--dark);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .note strong {
+      display: block;
+      min-height: 28px;
+      padding: 6px;
+      font-size: 13px;
+    }
+    .empty-state {
+      padding: 22px;
+      border: 1px dashed #9fb1c6;
+      border-radius: 8px;
+      color: var(--muted);
+      background: #f8fafc;
+      text-align: center;
+    }
+    .tasks-preview {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 0 10px 10px;
+      background: #edf3f8;
+    }
+    .task-card {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .task-card h4 {
+      margin: 0;
+      padding: 8px 9px;
+      color: #fff;
+      background: var(--dark);
+      font-size: 13px;
+      text-transform: uppercase;
+    }
+    .task-row {
+      display: grid;
+      grid-template-columns: 1fr 110px;
+      min-height: 30px;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+    }
+    .task-row span,
+    .task-row strong {
+      display: flex;
+      align-items: center;
+      padding: 6px 7px;
+    }
+    .task-row span {
+      color: #344456;
+      background: #f8fafc;
+    }
+    .task-row strong {
+      justify-content: center;
+      border-left: 1px solid var(--line);
+      text-align: center;
+      text-transform: uppercase;
+      font-size: 11px;
+    }
+    .task-input {
+      width: 100%;
+      min-height: 30px;
+      border: 0;
+      padding: 6px 7px;
+      color: var(--ink);
+      background: #fff;
+      text-align: center;
+      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .task-input:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+      background: #f0fdfa;
+    }
+    .task-row.changed .task-input {
+      background: #fff7ed;
+    }
+    .log {
+      min-height: 120px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0f172a;
+      color: #dbeafe;
+      font-family: Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+    @media (max-width: 1020px) {
+      .app { grid-template-columns: 1fr; }
+      aside { display: none; }
+      .grid { grid-template-columns: 1fr; }
+      .services { grid-template-columns: 1fr; }
+      .tasks-preview { grid-template-columns: 1fr; }
+      .print-actions { grid-template-columns: 1fr; }
+      .inline-actions { grid-template-columns: 1fr; }
+      .silver-grid { grid-template-columns: 1fr; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .actions { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <section class="login-screen" id="loginScreen">
+    <form class="login-card" id="loginForm">
+      <div class="login-logo">
+        <div class="login-mark">CA</div>
+        <div>
+          <h1>ChamAsesor</h1>
+          <span>Cuadrantes, turnos y plateria</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="responsablePassword">Contraseña de responsable</label>
+        <input id="responsablePassword" type="password" placeholder="Introduce la contraseña" autocomplete="current-password">
+      </div>
+      <button class="btn primary" type="submit">Entrar</button>
+      <p class="login-error" id="loginError" aria-live="polite"></p>
+      <p class="login-note">Acceso de prueba para responsables. En la version final se podran crear claves por usuario.</p>
+    </form>
+  </section>
+
+  <div class="app" id="appShell" hidden>
+    <aside>
+      <div class="brand">
+        <div class="mark">CQ</div>
+        <h1>ChamAsesor</h1>
+      </div>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div><strong>Subir Excel general</strong><span>Turnos por grupos; la plateria puede crearse desde ahi.</span></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div><strong>Elegir servicio</strong><span>Dia, semana, rangos de cena y cuadrante anterior.</span></div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div><strong>Revisar avisos</strong><span>El sistema avisa si algo no cuadra antes de imprimir.</span></div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div><strong>Exportar</strong><span>PDF horizontal, PNG/cartelera y version editable.</span></div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div>
+          <h2>ChamAsesor</h2>
+          <p class="subtitle">Cuadrantes, turnos y plateria</p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="loadSample">Cargar ejemplo</button>
+          <button class="btn primary" id="generateBtn">Generar cuadrante</button>
+          <button class="btn print" id="beforePrintBtn">Antes de imprimir</button>
+          <button class="btn" id="logoutBtn">Salir</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <section class="panel">
+          <h3>Entrada de datos</h3>
+          <div class="panel-body">
+            <div class="field">
+              <label for="weeklyExcel">Excel general semanal</label>
+              <input id="weeklyExcel" type="file" accept=".xlsx,.xls,.csv">
+              <p class="hint">Un solo archivo con responsables, camareros, ayudantes y turnos de la semana.</p>
+            </div>
+            <div class="field">
+              <label for="photoPlan">Foto de planilla hecha a mano</label>
+              <input id="photoPlan" type="file" accept=".png,.jpg,.jpeg,.heic,.webp">
+              <p class="hint">Opcional. Sirve si el jefe hace la planilla a mano y se necesita leerla con revision.</p>
+            </div>
+            <div class="field">
+              <label for="silverExcel">Plateria semanal</label>
+              <input id="silverExcel" type="file" accept=".xlsx,.xls,.csv">
+              <div class="inline-actions" style="margin-top:8px;">
+                <button class="btn" type="button" id="createSilverBtn">Crear desde ayudantes</button>
+                <button class="btn" type="button" id="clearSilverBtn">Limpiar plateria</button>
+              </div>
+              <p class="hint">Si no subes archivo, ChamAsesor usara los ayudantes del Excel general para crear la plateria.</p>
+              <div class="silver-builder" id="silverBuilder" hidden>
+                <label>Planilla de plateria semanal</label>
+                <p class="hint">En la version final estos desplegables se llenan con ayudantes disponibles segun turno y servicio.</p>
+                <div class="silver-grid" id="silverGrid">
+                  <label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <label for="previousFile">Cuadrante anterior</label>
+              <input id="previousFile" type="file" accept=".pdf,.html,.png,.jpg,.jpeg">
+            </div>
+            <div class="field">
+              <label for="weekName">Semana</label>
+              <input id="weekName" type="text" value="Semana 25">
+            </div>
+            <div class="field">
+              <label for="serviceDate">Dia a generar</label>
+              <input id="serviceDate" type="date" value="2026-06-18">
+            </div>
+            <div class="field">
+              <label>Cena</label>
+              <div class="segmented">
+                <button type="button" class="active" data-ranges="3">3 rangos</button>
+                <button type="button" data-ranges="4">4 rangos</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="mediterraneo">Mediterraneo</label>
+              <select id="mediterraneo">
+                <option value="auto">Automatico segun dia</option>
+                <option value="open">Abierto</option>
+                <option value="closed">Cerrado</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="notes">Notas del responsable</label>
+              <textarea id="notes" placeholder="Ejemplo: cena con 3 rangos, mantener camareros desayuno/cena, revisar plateria..."></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section class="preview">
+          <div class="panel">
+            <h3>Comprobaciones</h3>
+            <div class="panel-body">
+              <div class="status" id="statusList">
+                <div class="status-row"><span>Excel general</span><span class="pill warn">Pendiente</span></div>
+                <div class="status-row"><span>Foto de planilla</span><span class="pill warn">Opcional</span></div>
+                <div class="status-row"><span>Plateria semanal</span><span class="pill warn">Pendiente</span></div>
+                <div class="status-row"><span>Cuadrante anterior</span><span class="pill warn">Opcional</span></div>
+                <div class="status-row"><span>Cena</span><span class="pill ok">3 rangos</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Avisos antes de imprimir</h3>
+            <div class="panel-body">
+              <div class="status" id="warningsList">
+                <div class="status-row"><span>Turnos y libres</span><span class="pill warn">Sin revisar</span></div>
+                <div class="status-row"><span>Plateria sin duplicados</span><span class="pill warn">Sin revisar</span></div>
+                <div class="status-row"><span>Personal de C colocado</span><span class="pill warn">Sin revisar</span></div>
+                <div class="status-row"><span>Tareas de cierre</span><span class="pill warn">Sin revisar</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel print-panel" id="printPanel" hidden>
+            <h3>Antes de imprimir</h3>
+            <div class="panel-body">
+              <div class="print-actions">
+                <button class="btn" id="reviewBtn">Revisar avisos</button>
+                <button class="btn" id="adminBtn">Responsable</button>
+                <button class="btn" id="previewPdfBtn">Ver PDF</button>
+                <button class="btn" id="downloadPdfBtn">Descargar PDF</button>
+                <button class="btn" id="printBtn">Imprimir</button>
+                <button class="btn" id="downloadPngBtn">Descargar PNG</button>
+              </div>
+              <div class="print-option">
+                <strong>Salida final</strong>
+                <span>Una sola cartelera completa con rangos, plateria, caja, Mediterraneo y tareas de cierre.</span>
+              </div>
+              <div class="print-option">
+                <strong>Formato recomendado</strong>
+                <span>A4 horizontal, una pagina, letra grande y margenes pequenos.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel admin-panel" id="adminPanel" hidden>
+            <h3>Modo responsable</h3>
+            <div class="panel-body">
+              <div class="field">
+                <label for="ruleTitle">Nueva regla</label>
+                <input id="ruleTitle" type="text" placeholder="Ejemplo: quien este en plateria no hace tareas del mismo servicio">
+              </div>
+              <div class="field">
+                <label for="ruleScope">Donde aplica</label>
+                <select id="ruleScope">
+                  <option>Todo</option>
+                  <option>Desayuno</option>
+                  <option>Almuerzo</option>
+                  <option>Cena</option>
+                  <option>Plateria</option>
+                  <option>Tareas</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="ruleText">Detalle</label>
+                <textarea id="ruleText" placeholder="Escribe aqui la regla para futuras semanas."></textarea>
+              </div>
+              <button class="btn primary" id="saveRuleBtn">Guardar regla</button>
+            </div>
+          </div>
+
+          <div class="board" id="board">
+            <div class="board-title">
+              <strong>Vista previa del cuadrante</strong>
+              <span>Sube los archivos o carga un ejemplo para ver la estructura.</span>
+            </div>
+            <div class="empty-state">Todavia no hay cuadrante generado.</div>
+          </div>
+
+          <div class="panel">
+            <h3>Registro</h3>
+            <div class="panel-body">
+              <div class="log" id="log">Esperando datos...</div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const RESPONSABLE_PASSWORD = 'chamasesor2026';
+
+    function showApp() {
+      document.getElementById('loginScreen').hidden = true;
+      document.getElementById('appShell').hidden = false;
+    }
+
+    function showLogin() {
+      document.getElementById('appShell').hidden = true;
+      document.getElementById('loginScreen').hidden = false;
+      document.getElementById('responsablePassword').value = '';
+      document.getElementById('responsablePassword').focus();
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const password = document.getElementById('responsablePassword').value.trim();
+      const error = document.getElementById('loginError');
+      if (password === RESPONSABLE_PASSWORD) {
+        error.textContent = '';
+        showApp();
+        return;
+      }
+      error.textContent = 'Contraseña incorrecta.';
+    });
+
+    const state = {
+      ranges: 3,
+      silverCreated: false,
+      files: {
+        weekly: null,
+        silver: null,
+        previous: null,
+        photo: null
+      }
+    };
+
+    const log = document.getElementById('log');
+    const statusList = document.getElementById('statusList');
+    const board = document.getElementById('board');
+
+    function fileLabel(file) {
+      if (!file) return null;
+      const kb = Math.max(1, Math.round(file.size / 1024));
+      return `${file.name} (${kb} KB)`;
+    }
+
+    function appendLog(message) {
+      const time = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      log.textContent = `${log.textContent === 'Esperando datos...' ? '' : log.textContent + '\n'}[${time}] ${message}`;
+    }
+
+    function pill(text, type) {
+      return `<span class="pill ${type}">${text}</span>`;
+    }
+
+    function updateStatus() {
+      statusList.innerHTML = `
+        <div class="status-row"><span>Excel general</span>${state.files.weekly ? pill('Cargado', 'ok') : pill('Pendiente', 'warn')}</div>
+        <div class="status-row"><span>Foto de planilla</span>${state.files.photo ? pill('Cargada', 'ok') : pill('Opcional', 'warn')}</div>
+        <div class="status-row"><span>Plateria semanal</span>${state.files.silver || state.silverCreated ? pill(state.files.silver ? 'Cargada' : 'Creada', 'ok') : pill('Pendiente', 'warn')}</div>
+        <div class="status-row"><span>Cuadrante anterior</span>${state.files.previous ? pill('Cargado', 'ok') : pill('Opcional', 'warn')}</div>
+        <div class="status-row"><span>Cena</span>${pill(`${state.ranges} rangos`, 'ok')}</div>
+      `;
+    }
+
+    function bindFile(id, key, label) {
+      document.getElementById(id).addEventListener('change', (event) => {
+        state.files[key] = event.target.files[0] || null;
+        updateStatus();
+        if (state.files[key]) appendLog(`${label}: ${fileLabel(state.files[key])}`);
+      });
+    }
+
+    bindFile('weeklyExcel', 'weekly', 'Excel general');
+    bindFile('photoPlan', 'photo', 'Foto de planilla');
+    bindFile('silverExcel', 'silver', 'Plateria semanal');
+    bindFile('previousFile', 'previous', 'Cuadrante anterior');
+
+    function buildSilverRows() {
+      const days = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
+      const helpers = ['', 'Barco', 'J. Carlos', 'Ernes', 'Yusi', 'Jenny', 'Lucia', 'Loa', 'Povi', 'Roman', 'Carlos', 'Yaiza G.', 'Yuriy', 'Emelina', 'Yessi', 'Yaiza M.'];
+      const grid = document.getElementById('silverGrid');
+      grid.innerHTML = '<label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>';
+      days.forEach((day) => {
+        grid.insertAdjacentHTML('beforeend', `
+          <input value="${day}" aria-label="${day}" readonly>
+          ${silverSelect(day, 'desayuno', helpers)}
+          ${silverSelect(day, 'almuerzo', helpers)}
+          ${silverSelect(day, 'cena', helpers)}
+        `);
+      });
+    }
+
+    function silverSelect(day, service, helpers) {
+      const options = helpers.map((helper) => `<option value="${helper}">${helper || 'Pendiente'}</option>`).join('');
+      return `<select class="silver-input" data-day="${day}" data-service="${service}" aria-label="${day} ${service}">${options}</select>`;
+    }
+
+    document.getElementById('createSilverBtn').addEventListener('click', () => {
+      const builder = document.getElementById('silverBuilder');
+      buildSilverRows();
+      builder.hidden = false;
+      state.silverCreated = true;
+      updateStatus();
+      appendLog('Planilla de plateria creada dentro de ChamAsesor.');
+    });
+
+    document.getElementById('clearSilverBtn').addEventListener('click', () => {
+      document.getElementById('silverExcel').value = '';
+      document.getElementById('silverBuilder').hidden = true;
+      document.getElementById('silverGrid').innerHTML = '<label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>';
+      state.files.silver = null;
+      state.silverCreated = false;
+      updateStatus();
+      appendLog('Plateria limpiada.');
+    });
+
+    document.querySelectorAll('.segmented button').forEach((button) => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.segmented button').forEach((item) => item.classList.remove('active'));
+        button.classList.add('active');
+        state.ranges = Number(button.dataset.ranges);
+        updateStatus();
+        appendLog(`Cena configurada con ${state.ranges} rangos.`);
+      });
+    });
+
+    function dayName(dateValue) {
+      const date = new Date(`${dateValue}T12:00:00`);
+      return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function renderBoard(sample) {
+      const week = document.getElementById('weekName').value || 'Semana';
+      const dateText = dayName(document.getElementById('serviceDate').value);
+      const med = document.getElementById('mediterraneo').value;
+      const medText = med === 'closed' || (med === 'auto' && dateText.toLowerCase().includes('jueves')) ? 'Cerrado' : 'Pendiente';
+
+      board.innerHTML = `
+        <div class="board-title">
+          <strong>Cuadrante de servicio - ${dateText}</strong>
+              <span>${week}. Vista previa generada por ChamAsesor.</span>
+        </div>
+        <div class="services">
+          <article class="service">
+            <h4>Desayuno</h4>
+            ${range('1', 'Rango 1', sample ? 'Atteneri' : 'Pendiente', sample ? 'Yusi' : 'Pendiente')}
+            ${range('2', 'Rango 2', sample ? 'Vero M2' : 'Pendiente', sample ? 'Loa' : 'Pendiente')}
+            ${range('3', 'Rango 3', sample ? 'Chamo M2' : 'Pendiente', sample ? 'Roman' : 'Pendiente')}
+            ${range('4', 'Rango 4', sample ? 'Mateo M7' : 'Pendiente', sample ? 'Ernes' : 'Pendiente')}
+            ${range('T', 'Terraza', sample ? 'Lidia' : 'Pendiente', '')}
+            <div class="notes">
+              ${note('Cafeteras', sample ? 'Yessi M7R' : 'Pendiente')}
+              ${note('Plateria desayuno', sample ? 'Jenny M2' : 'Pendiente')}
+            </div>
+          </article>
+          <article class="service">
+            <h4>Almuerzo</h4>
+            ${range('1', 'Rango 1', sample ? 'Chamo M2' : 'Pendiente', sample ? 'J. Carlos M2' : 'Pendiente')}
+            ${range('3', 'Rango 3', sample ? 'Mateo M7 -> Fernando C' : 'Pendiente', sample ? 'Barco T' : 'Pendiente')}
+            ${range('T', 'Terraza', sample ? 'Vero M2' : 'Pendiente', '')}
+            <div class="notes">
+              ${note('Plateria almuerzo', sample ? 'Yaiza G. C' : 'Pendiente')}
+              ${note('Atenciones', sample ? 'Yessi' : 'Pendiente')}
+            </div>
+          </article>
+          <article class="service">
+            <h4>Cena</h4>
+            ${range('1', 'Rango 1', sample ? 'Atteneri' : 'Pendiente', sample ? 'Yusi / Yaiza G. C' : 'Pendiente')}
+            ${range('2', 'Rango 2', sample ? 'Marina C' : 'Pendiente', sample ? 'Barco T' : 'Pendiente')}
+            ${range('3', 'Rango 3', sample ? 'Alvarez' : 'Pendiente', sample ? 'Ernes / Fernando C' : 'Pendiente')}
+            ${state.ranges === 4 ? range('4', 'Rango 4', 'Pendiente', 'Pendiente') : ''}
+            ${range('T', 'Terraza', sample ? 'Lidia' : 'Pendiente', '')}
+            ${range('M', 'Mediterraneo', medText, '')}
+            <div class="notes">
+              ${note('Caja', sample ? 'Loa' : 'Pendiente')}
+              ${note('Plateria-recogida de pisos 18h', sample ? 'Roman' : 'Pendiente')}
+            </div>
+          </article>
+        </div>
+        <div class="tasks-preview">
+          <article class="task-card">
+            <h4>Desayuno - tareas de cierre</h4>
+            ${task('desayuno', 'Cont/Ropa / Sal / Pl. cafe / M. Zumos', sample ? 'Roman' : 'Pendiente')}
+            ${task('desayuno', 'Tazas / lavar y sacar esterillas', sample ? 'Ernes' : 'Pendiente')}
+            ${task('desayuno', 'Repartir material', sample ? 'Atteneri' : 'Pendiente')}
+            ${task('desayuno', 'Microondas / teteras', sample ? 'Lidia' : 'Pendiente')}
+            ${task('desayuno', 'Azucar rangos', sample ? 'Chamo M2' : 'Pendiente')}
+            ${task('desayuno', 'Cuberterio', sample ? 'Loa' : 'Pendiente')}
+            ${task('desayuno', 'Tronas, basura, cascos, roturas, limpieza bodega', sample ? 'J. Carlos M2' : 'Pendiente')}
+            ${task('desayuno', 'Cargar neveras', sample ? 'Mateo M7' : 'Pendiente')}
+            ${task('desayuno', 'Baginbox - cerveza', sample ? 'Vero M2' : 'Pendiente')}
+          </article>
+          <article class="task-card">
+            <h4>Almuerzo - tareas de cierre</h4>
+            ${task('almuerzo', 'Basuras', '')}
+            ${task('almuerzo', 'Revisar bodega - baginbox 3/4', sample ? 'Barco 1' : 'Pendiente')}
+            ${task('almuerzo', 'Copas', sample ? 'Marina / Alvarez' : 'Pendiente')}
+            ${task('almuerzo', 'Cubiertos', sample ? 'Jenny 1' : 'Pendiente')}
+            ${task('almuerzo', 'Saleros y pimenteros', sample ? 'Jenny 2' : 'Pendiente')}
+            ${task('almuerzo', 'Salsas / sillas de ninos', sample ? 'Barco 2' : 'Pendiente')}
+            ${task('almuerzo', 'Rellenado de aparadores', sample ? 'Fernando' : 'Pendiente')}
+            ${task('almuerzo', 'Repartir cartas / repartir material', sample ? 'Fernando' : 'Pendiente')}
+            ${task('almuerzo', 'Limpieza de grifos', sample ? 'Jenny 3' : 'Pendiente')}
+          </article>
+          <article class="task-card">
+            <h4>Cena - tareas de cierre</h4>
+            ${task('cena', 'Sillas de ninos', sample ? 'Cada rango' : 'Pendiente')}
+            ${task('cena', 'Decoracion + reponer vinos', sample ? 'Loa' : 'Pendiente')}
+            ${task('cena', 'Ayuda pisos', sample ? 'Barco T' : 'Pendiente')}
+          </article>
+        </div>
+      `;
+    }
+
+    function range(code, title, first, second) {
+      const secondLine = second ? `<div class="line"><span>Ayudant@</span><strong>${second}</strong></div>` : '';
+      return `
+        <div class="range">
+          <div class="range-code">${code}</div>
+          <div class="range-body">
+            <b>${title}</b>
+            <div class="line"><span>Camarer@</span><strong>${first}</strong></div>
+            ${secondLine}
+          </div>
+        </div>
+      `;
+    }
+
+    function note(title, value) {
+      return `<div class="note"><span>${title}</span><strong>${value}</strong></div>`;
+    }
+
+    function task(service, title, value) {
+      return `
+        <div class="task-row" data-service="${service}" data-task="${title}">
+          <span>${title}</span>
+          <input class="task-input" value="${escapeAttr(value)}" aria-label="${title}">
+        </div>
+      `;
+    }
+
+    function escapeAttr(value) {
+      return String(value || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    function bindTaskEditors() {
+      document.querySelectorAll('.task-input').forEach((input) => {
+        input.addEventListener('input', () => {
+          input.closest('.task-row').classList.add('changed');
+        });
+      });
+    }
+
+    function normalizePerson(value) {
+      return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\b(m2|m7|m7r|m8|m8r|t|c|dc|dc2|dc7|pr|ilt|v|l)\b/g, '')
+        .replace(/\b\d+\b/g, '')
+        .replace(/[^a-z. ]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function splitPeople(value) {
+      return String(value || '')
+        .split(/\/|,| y /i)
+        .map(normalizePerson)
+        .filter(Boolean)
+        .filter((name) => !['pendiente', 'cada rango'].includes(name));
+    }
+
+    function getPlateriaByService() {
+      const result = {};
+      document.querySelectorAll('.note').forEach((noteEl) => {
+        const title = noteEl.querySelector('span')?.textContent.toLowerCase() || '';
+        const value = noteEl.querySelector('strong')?.textContent || '';
+        if (title.includes('plateria desayuno')) result.desayuno = normalizePerson(value);
+        if (title.includes('plateria almuerzo')) result.almuerzo = normalizePerson(value);
+        if (title.includes('plateria-recogida') || title.includes('plateria cena')) result.cena = normalizePerson(value);
+      });
+      return result;
+    }
+
+    function validateTaskEdits() {
+      const plateria = getPlateriaByService();
+      const conflicts = [];
+      document.querySelectorAll('.task-row[data-service]').forEach((row) => {
+        const service = row.dataset.service;
+        const taskName = row.dataset.task;
+        const value = row.querySelector('.task-input')?.value || '';
+        const people = splitPeople(value);
+        if (plateria[service] && people.includes(plateria[service])) {
+          conflicts.push(`${value} esta en plateria de ${service} y tambien en ${taskName}.`);
+        }
+      });
+      return conflicts;
+    }
+
+    document.getElementById('loadSample').addEventListener('click', () => {
+      document.getElementById('notes').value = 'Ejemplo cargado: mantener rango desayuno/cena, plateria bloquea tareas, cena con 3 rangos.';
+      renderBoard(true);
+      bindTaskEditors();
+      appendLog('Ejemplo cargado con estructura de Semana 25.');
+    });
+
+    document.getElementById('reviewBtn').addEventListener('click', () => {
+      updateStatus();
+      const missing = [];
+      if (!state.files.weekly && !state.files.photo) missing.push('Excel general o foto de planilla');
+      if (!state.files.silver && !state.silverCreated) missing.push('Plateria semanal');
+      if (missing.length) {
+        appendLog(`Revision: falta ${missing.join(' y ')}.`);
+      } else {
+        appendLog('Revision: archivos principales cargados. Listo para enviar a ChamAsesor.');
+      }
+      const taskConflicts = validateTaskEdits();
+      document.getElementById('warningsList').innerHTML = `
+        <div class="status-row"><span>Turnos y libres</span>${pill('Revisado', 'ok')}</div>
+        <div class="status-row"><span>Plateria sin duplicados</span>${pill(taskConflicts.length ? 'Conflicto' : 'Revisado', taskConflicts.length ? 'danger' : 'ok')}</div>
+        <div class="status-row"><span>Personal de C colocado</span>${pill('Revisar al generar', 'warn')}</div>
+        <div class="status-row"><span>Tareas de cierre</span>${pill(taskConflicts.length ? 'Corregir' : 'Revisado', taskConflicts.length ? 'danger' : 'ok')}</div>
+      `;
+      if (taskConflicts.length) {
+        taskConflicts.forEach((item) => appendLog(`Aviso: ${item}`));
+      } else {
+        appendLog('Avisos revisados: tareas de cierre sin conflicto visible con plateria.');
+      }
+    });
+
+    document.getElementById('generateBtn').addEventListener('click', () => {
+      renderBoard(Boolean(state.files.weekly || state.files.silver));
+      bindTaskEditors();
+      appendLog('Vista previa generada. En la version final, ChamAsesor creara PDF, PNG y HTML editable.');
+    });
+
+    document.getElementById('beforePrintBtn').addEventListener('click', () => {
+      const panel = document.getElementById('printPanel');
+      panel.hidden = !panel.hidden;
+      appendLog(panel.hidden ? 'Opciones de impresion cerradas.' : 'Opciones antes de imprimir abiertas.');
+    });
+
+    document.getElementById('adminBtn').addEventListener('click', () => {
+      const panel = document.getElementById('adminPanel');
+      panel.hidden = !panel.hidden;
+      appendLog(panel.hidden ? 'Modo responsable cerrado.' : 'Modo responsable abierto.');
+    });
+
+    document.getElementById('saveRuleBtn').addEventListener('click', () => {
+      const title = document.getElementById('ruleTitle').value.trim();
+      if (!title) {
+        appendLog('No se guardo la regla: falta el titulo.');
+        return;
+      }
+      appendLog(`Regla guardada para responsable: ${title}`);
+      document.getElementById('ruleTitle').value = '';
+      document.getElementById('ruleText').value = '';
+    });
+
+    document.getElementById('previewPdfBtn').addEventListener('click', () => {
+      appendLog('Ver PDF: pendiente de conectar al generador final.');
+    });
+
+    document.getElementById('downloadPdfBtn').addEventListener('click', () => {
+      appendLog('Descargar PDF: pendiente de conectar al generador final.');
+    });
+
+    document.getElementById('downloadPngBtn').addEventListener('click', () => {
+      appendLog('Descargar PNG: pendiente de conectar al generador final.');
+    });
+
+    document.getElementById('printBtn').addEventListener('click', () => {
+      appendLog('Abriendo impresion del navegador.');
+      window.print();
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      showLogin();
+    });
+  </script>
+</body>
+</html>
