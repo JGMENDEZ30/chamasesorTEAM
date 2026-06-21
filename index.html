@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ChamAsesor</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --bg: #eef3f8;
@@ -206,6 +207,22 @@
       border-color: #1d4ed8;
       color: #fff;
       background: #1d4ed8;
+    }
+    .action-feedback {
+      margin: 0 0 14px;
+      padding: 11px 12px;
+      border: 1px solid #99d4cf;
+      border-left: 5px solid var(--accent);
+      border-radius: 8px;
+      background: #ecfdf9;
+      color: #134e48;
+      font-weight: 800;
+    }
+    .action-feedback.warn {
+      border-color: #facc15;
+      border-left-color: var(--warn);
+      background: #fffbeb;
+      color: #713f12;
     }
     .grid {
       display: grid;
@@ -661,6 +678,8 @@
         </div>
       </div>
 
+      <div class="action-feedback" id="actionFeedback">Listo para trabajar. Sube el Excel general o crea la plateria desde ayudantes.</div>
+
       <div class="grid">
         <section class="panel">
           <h3>Entrada de datos</h3>
@@ -671,21 +690,15 @@
               <p class="hint">Un solo archivo con responsables, camareros, ayudantes y turnos de la semana.</p>
             </div>
             <div class="field">
-              <label for="photoPlan">Foto de planilla hecha a mano</label>
-              <input id="photoPlan" type="file" accept=".png,.jpg,.jpeg,.heic,.webp">
-              <p class="hint">Opcional. Sirve si el jefe hace la planilla a mano y se necesita leerla con revision.</p>
-            </div>
-            <div class="field">
-              <label for="silverExcel">Plateria semanal</label>
-              <input id="silverExcel" type="file" accept=".xlsx,.xls,.csv">
+              <label>Plateria semanal</label>
               <div class="inline-actions" style="margin-top:8px;">
                 <button class="btn" type="button" id="createSilverBtn">Crear desde ayudantes</button>
                 <button class="btn" type="button" id="clearSilverBtn">Limpiar plateria</button>
               </div>
-              <p class="hint">Si no subes archivo, ChamAsesor usara los ayudantes del Excel general para crear la plateria.</p>
+              <p class="hint">Se crea desde la zona de Ayudantes del Excel general. No hace falta subir otra planilla.</p>
               <div class="silver-builder" id="silverBuilder" hidden>
                 <label>Planilla de plateria semanal</label>
-                <p class="hint">En la version final estos desplegables se llenan con ayudantes disponibles segun turno y servicio.</p>
+                <p class="hint">Se llena con ayudantes disponibles segun sus turnos. Puedes cambiar cualquier nombre antes de imprimir.</p>
                 <div class="silver-grid" id="silverGrid">
                   <label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>
                 </div>
@@ -731,8 +744,7 @@
             <div class="panel-body">
               <div class="status" id="statusList">
                 <div class="status-row"><span>Excel general</span><span class="pill warn">Pendiente</span></div>
-                <div class="status-row"><span>Foto de planilla</span><span class="pill warn">Opcional</span></div>
-                <div class="status-row"><span>Plateria semanal</span><span class="pill warn">Pendiente</span></div>
+                <div class="status-row"><span>Plateria desde ayudantes</span><span class="pill warn">Pendiente</span></div>
                 <div class="status-row"><span>Cuadrante anterior</span><span class="pill warn">Opcional</span></div>
                 <div class="status-row"><span>Cena</span><span class="pill ok">3 rangos</span></div>
               </div>
@@ -807,7 +819,8 @@
             <div class="empty-state">Todavia no hay cuadrante generado.</div>
           </div>
 
-          <div class="panel">
+          <button class="btn" type="button" id="toggleLogBtn">Ver registro</button>
+          <div class="panel" id="logPanel" hidden>
             <h3>Registro</h3>
             <div class="panel-body">
               <div class="log" id="log">Esperando datos...</div>
@@ -838,15 +851,17 @@ function showApp() {
       silverCreated: false,
       files: {
         weekly: null,
-        silver: null,
-        previous: null,
-        photo: null
-      }
+        previous: null
+      },
+      savedFiles: {},
+      weeklyHelpers: []
     };
 
     const log = document.getElementById('log');
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
+    const actionFeedback = document.getElementById('actionFeedback');
+    const STORAGE_KEY = 'chamasesor-borrador-v1';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -857,73 +872,429 @@ function showApp() {
     function appendLog(message) {
       const time = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       log.textContent = `${log.textContent === 'Esperando datos...' ? '' : log.textContent + '\n'}[${time}] ${message}`;
+      actionFeedback.textContent = message;
+      actionFeedback.classList.toggle('warn', /falta|pendiente|no se pudo|aviso|corregir/i.test(message));
     }
 
     function pill(text, type) {
       return `<span class="pill ${type}">${text}</span>`;
     }
 
+    function fileStatus(key) {
+      if (state.files[key]) return pill('Cargado', 'ok');
+      if (state.savedFiles[key]) return pill('Recordado', 'ok');
+      return null;
+    }
+
     function updateStatus() {
       statusList.innerHTML = `
-        <div class="status-row"><span>Excel general</span>${state.files.weekly ? pill('Cargado', 'ok') : pill('Pendiente', 'warn')}</div>
-        <div class="status-row"><span>Foto de planilla</span>${state.files.photo ? pill('Cargada', 'ok') : pill('Opcional', 'warn')}</div>
-        <div class="status-row"><span>Plateria semanal</span>${state.files.silver || state.silverCreated ? pill(state.files.silver ? 'Cargada' : 'Creada', 'ok') : pill('Pendiente', 'warn')}</div>
-        <div class="status-row"><span>Cuadrante anterior</span>${state.files.previous ? pill('Cargado', 'ok') : pill('Opcional', 'warn')}</div>
+        <div class="status-row"><span>Excel general</span>${fileStatus('weekly') || pill('Pendiente', 'warn')}</div>
+        <div class="status-row"><span>Plateria desde ayudantes</span>${state.silverCreated ? pill('Creada', 'ok') : pill('Pendiente', 'warn')}</div>
+        <div class="status-row"><span>Cuadrante anterior</span>${fileStatus('previous') || pill('Opcional', 'warn')}</div>
         <div class="status-row"><span>Cena</span>${pill(`${state.ranges} rangos`, 'ok')}</div>
       `;
     }
 
+    function formValues() {
+      snapshotEditableValues();
+      return {
+        weekName: document.getElementById('weekName').value,
+        serviceDate: document.getElementById('serviceDate').value,
+        mediterraneo: document.getElementById('mediterraneo').value,
+        notes: document.getElementById('notes').value,
+        ranges: state.ranges,
+        silverCreated: state.silverCreated,
+        savedFiles: state.savedFiles,
+        weeklyHelpers: state.weeklyHelpers,
+        boardHtml: board.innerHTML,
+        logText: log.textContent,
+        silverBuilderOpen: !document.getElementById('silverBuilder').hidden,
+        silverRows: Array.from(document.querySelectorAll('.silver-input')).map((input) => ({
+          day: input.dataset.day,
+          service: input.dataset.service,
+          value: input.value
+        }))
+      };
+    }
+
+    function saveDraft() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(formValues()));
+      } catch (error) {
+        appendLog('Aviso: este navegador no permitio guardar el borrador.');
+      }
+    }
+
+    function applyRangeButtons() {
+      document.querySelectorAll('.segmented button').forEach((button) => {
+        button.classList.toggle('active', Number(button.dataset.ranges) === state.ranges);
+      });
+    }
+
+    function snapshotEditableValues() {
+      document.querySelectorAll('.task-input').forEach((input) => {
+        input.setAttribute('value', input.value);
+      });
+    }
+
+    function restoreEditableValues() {
+      document.querySelectorAll('.task-input').forEach((input) => {
+        input.value = input.getAttribute('value') || '';
+      });
+    }
+
+    function restoreDraft() {
+      let draft = null;
+      try {
+        draft = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      } catch (error) {
+        draft = null;
+      }
+      if (!draft) return;
+      document.getElementById('weekName').value = draft.weekName || document.getElementById('weekName').value;
+      document.getElementById('serviceDate').value = draft.serviceDate || document.getElementById('serviceDate').value;
+      document.getElementById('mediterraneo').value = draft.mediterraneo || document.getElementById('mediterraneo').value;
+      document.getElementById('notes').value = draft.notes || '';
+      state.ranges = Number(draft.ranges || state.ranges);
+      state.silverCreated = Boolean(draft.silverCreated);
+      state.savedFiles = draft.savedFiles || {};
+      state.weeklyHelpers = draft.weeklyHelpers || [];
+      if (draft.boardHtml) {
+        board.innerHTML = draft.boardHtml;
+        restoreEditableValues();
+        bindTaskEditors();
+      }
+      if (draft.silverBuilderOpen) {
+        buildSilverRows();
+        document.getElementById('silverBuilder').hidden = false;
+        (draft.silverRows || []).forEach((row) => {
+          const selector = `.silver-input[data-day="${row.day}"][data-service="${row.service}"]`;
+          const input = document.querySelector(selector);
+          if (input) input.value = row.value;
+        });
+      }
+      if (draft.logText) log.textContent = draft.logText;
+      applyRangeButtons();
+      updateStatus();
+      appendLog('Borrador recuperado automaticamente.');
+    }
+
+    function pad2(value) {
+      return String(value).padStart(2, '0');
+    }
+
+    function dateToInputValue(date) {
+      return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+    }
+
+    function isoWeekNumber(dateValue) {
+      const date = new Date(`${dateValue}T12:00:00`);
+      const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const day = utc.getUTCDay() || 7;
+      utc.setUTCDate(utc.getUTCDate() + 4 - day);
+      const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
+      return Math.ceil((((utc - yearStart) / 86400000) + 1) / 7);
+    }
+
+    function mondayOfIsoWeek(year, week) {
+      const jan4 = new Date(Date.UTC(year, 0, 4));
+      const jan4Day = jan4.getUTCDay() || 7;
+      jan4.setUTCDate(jan4.getUTCDate() - jan4Day + 1 + ((week - 1) * 7));
+      return new Date(jan4.getUTCFullYear(), jan4.getUTCMonth(), jan4.getUTCDate());
+    }
+
+    function getCurrentYear() {
+      const currentDate = document.getElementById('serviceDate').value;
+      if (currentDate) return Number(currentDate.slice(0, 4));
+      return new Date().getFullYear();
+    }
+
+    function weekFromText(text) {
+      const match = String(text || '').match(/(?:semana|week|wk|s)[\s._-]*(\d{1,2})/i);
+      if (!match) return null;
+      const week = Number(match[1]);
+      return week >= 1 && week <= 53 ? week : null;
+    }
+
+    function yearFromText(text) {
+      const match = String(text || '').match(/\b(20\d{2})\b/);
+      return match ? Number(match[1]) : getCurrentYear();
+    }
+
+    function dateFromText(text) {
+      const raw = String(text || '');
+      let match = raw.match(/\b(20\d{2})[-_. ](0?[1-9]|1[0-2])[-_. ](0?[1-9]|[12]\d|3[01])\b/);
+      if (match) return `${match[1]}-${pad2(match[2])}-${pad2(match[3])}`;
+      match = raw.match(/\b(0?[1-9]|[12]\d|3[01])[-_. ](0?[1-9]|1[0-2])[-_. ](20\d{2})\b/);
+      if (match) return `${match[3]}-${pad2(match[2])}-${pad2(match[1])}`;
+      return null;
+    }
+
+    function syncWeekFromDate() {
+      const dateValue = document.getElementById('serviceDate').value;
+      if (!dateValue) return;
+      document.getElementById('weekName').value = `Semana ${isoWeekNumber(dateValue)}`;
+    }
+
+    function syncDateFromWeek(text) {
+      const week = weekFromText(text);
+      if (!week) return false;
+      const year = yearFromText(text);
+      document.getElementById('weekName').value = `Semana ${week}`;
+      document.getElementById('serviceDate').value = dateToInputValue(mondayOfIsoWeek(year, week));
+      return true;
+    }
+
+    function applyScheduleFromText(text, sourceLabel) {
+      if (syncDateFromWeek(text)) {
+        appendLog(`Semana detectada en ${sourceLabel}: ${document.getElementById('weekName').value}.`);
+        return true;
+      }
+      const dateValue = dateFromText(text);
+      if (dateValue) {
+        document.getElementById('serviceDate').value = dateValue;
+        syncWeekFromDate();
+        appendLog(`Fecha detectada en ${sourceLabel}: ${dayName(dateValue)}.`);
+        return true;
+      }
+      return false;
+    }
+
+    async function spreadsheetText(file) {
+      const lowerName = file.name.toLowerCase();
+      if (lowerName.endsWith('.csv') || lowerName.endsWith('.txt')) {
+        return await file.text();
+      }
+      if (!window.XLSX) {
+        appendLog('No se pudo leer el Excel dentro: falta el lector XLSX. Uso el nombre del archivo.');
+        return '';
+      }
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const chunks = [...workbook.SheetNames];
+      workbook.SheetNames.forEach((sheetName) => {
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: false, defval: '' });
+        rows.slice(0, 40).forEach((row) => chunks.push(row.join(' ')));
+      });
+      return chunks.join(' ');
+    }
+
+    async function spreadsheetRows(file) {
+      const lowerName = file.name.toLowerCase();
+      if (lowerName.endsWith('.csv') || lowerName.endsWith('.txt')) {
+        return (await file.text()).split(/\r?\n/).map((line) => line.split(/;|,/).map((cell) => cell.trim()));
+      }
+      if (!window.XLSX) return [];
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      return workbook.SheetNames.flatMap((sheetName) => {
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: false, defval: '' });
+        return [[sheetName], ...rows];
+      });
+    }
+
+    function normalizeShift(value) {
+      return String(value || '').trim().toUpperCase().replace(/\s+/g, '');
+    }
+
+    function parseWeeklyHelpers(rows) {
+      const helpers = [];
+      let inHelpers = false;
+      rows.forEach((row) => {
+        const cells = row.map((cell) => String(cell || '').trim()).filter(Boolean);
+        if (!cells.length) return;
+        const first = cells[0].toLowerCase();
+        if (first.includes('ayudante')) {
+          inHelpers = true;
+          return;
+        }
+        if (inHelpers && /(leyenda|camareros|jefes|responsables|plateria|platería)/i.test(cells.join(' '))) {
+          inHelpers = false;
+          return;
+        }
+        if (!inHelpers || cells.length < 4) return;
+        const name = cells[0].replace(/:$/, '').trim();
+        const shifts = cells.slice(1, 8).map(normalizeShift);
+        if (!name || shifts.length < 3) return;
+        if (shifts.some(Boolean)) helpers.push({ name, shifts });
+      });
+      return helpers;
+    }
+
+    async function inferHelpersFromWeeklyExcel(file) {
+      if (!file) return;
+      try {
+        const helpers = parseWeeklyHelpers(await spreadsheetRows(file));
+        state.weeklyHelpers = helpers;
+        if (helpers.length) {
+          appendLog(`Ayudantes detectados en el Excel: ${helpers.length}. La plateria puede crearse desde esos turnos.`);
+        } else {
+          appendLog('Aviso: no encontre la zona de Ayudantes en el Excel. La plateria usara una lista base editable.');
+        }
+      } catch (error) {
+        state.weeklyHelpers = [];
+        appendLog('No se pudieron leer los ayudantes del Excel. La plateria queda editable manualmente.');
+      }
+    }
+
+    async function inferScheduleFromExcelContent(file) {
+      if (!file) return false;
+      try {
+        const text = await spreadsheetText(file);
+        return text ? applyScheduleFromText(text, 'el Excel') : false;
+      } catch (error) {
+        appendLog('No se pudo leer la semana dentro del Excel. Reviso el nombre del archivo.');
+        return false;
+      }
+    }
+
+    function inferScheduleFromFile(file) {
+      if (!file) return;
+      applyScheduleFromText(file.name, 'el nombre del archivo');
+    }
+
     function bindFile(id, key, label) {
-      document.getElementById(id).addEventListener('change', (event) => {
+      document.getElementById(id).addEventListener('change', async (event) => {
         state.files[key] = event.target.files[0] || null;
+        if (state.files[key]) state.savedFiles[key] = fileLabel(state.files[key]);
+        if (!state.files[key]) delete state.savedFiles[key];
+        if (key === 'weekly' && state.files[key]) {
+          const foundInsideExcel = await inferScheduleFromExcelContent(state.files[key]);
+          if (!foundInsideExcel) inferScheduleFromFile(state.files[key]);
+          await inferHelpersFromWeeklyExcel(state.files[key]);
+        }
         updateStatus();
         if (state.files[key]) appendLog(`${label}: ${fileLabel(state.files[key])}`);
+        saveDraft();
       });
     }
 
     bindFile('weeklyExcel', 'weekly', 'Excel general');
-    bindFile('photoPlan', 'photo', 'Foto de planilla');
-    bindFile('silverExcel', 'silver', 'Plateria semanal');
     bindFile('previousFile', 'previous', 'Cuadrante anterior');
 
-    function buildSilverRows() {
-      const days = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
-      const helpers = ['', 'Barco', 'J. Carlos', 'Ernes', 'Yusi', 'Jenny', 'Lucia', 'Loa', 'Povi', 'Roman', 'Carlos', 'Yaiza G.', 'Yuriy', 'Emelina', 'Yessi', 'Yaiza M.'];
-      const grid = document.getElementById('silverGrid');
-      grid.innerHTML = '<label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>';
-      days.forEach((day) => {
-        grid.insertAdjacentHTML('beforeend', `
-          <input value="${day}" aria-label="${day}" readonly>
-          ${silverSelect(day, 'desayuno', helpers)}
-          ${silverSelect(day, 'almuerzo', helpers)}
-          ${silverSelect(day, 'cena', helpers)}
-        `);
+    document.getElementById('serviceDate').addEventListener('change', syncWeekFromDate);
+    document.getElementById('weekName').addEventListener('change', (event) => {
+      if (syncDateFromWeek(event.target.value)) {
+        appendLog(`${event.target.value}: fecha ajustada al lunes de la semana. Cambia el dia si necesitas otro.`);
+      }
+      saveDraft();
+    });
+    document.getElementById('weekName').addEventListener('input', (event) => {
+      if (syncDateFromWeek(event.target.value)) saveDraft();
+    });
+    document.getElementById('serviceDate').addEventListener('input', () => {
+      syncWeekFromDate();
+      saveDraft();
+    });
+    document.getElementById('serviceDate').addEventListener('change', saveDraft);
+    document.getElementById('mediterraneo').addEventListener('change', saveDraft);
+    document.getElementById('notes').addEventListener('input', saveDraft);
+
+    function mondayFromDateValue(dateValue) {
+      const date = new Date(`${dateValue}T12:00:00`);
+      const day = date.getDay() || 7;
+      date.setDate(date.getDate() - day + 1);
+      return date;
+    }
+
+    function weekDayLabels() {
+      const monday = mondayFromDateValue(document.getElementById('serviceDate').value);
+      return Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + index);
+        const label = date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' });
+        return label.charAt(0).toUpperCase() + label.slice(1);
       });
     }
 
-    function silverSelect(day, service, helpers) {
-      const options = helpers.map((helper) => `<option value="${helper}">${helper || 'Pendiente'}</option>`).join('');
+    function fallbackHelpers() {
+      return ['Barco', 'J. Carlos', 'Ernes', 'Yusi', 'Jenny', 'Lucia', 'Loa', 'Povi', 'Roman', 'Carlos', 'Yaiza G.', 'Yuriy', 'Emelina', 'Yessi', 'Yaiza M.'];
+    }
+
+    function isAvailableForService(shift, service) {
+      const value = normalizeShift(shift);
+      if (!value || ['L', 'V', 'ILT', 'HS', 'P.R', 'PR'].includes(value)) return false;
+      if (service === 'desayuno') return /^(M|M7|M7R|M8|M8R|M2|DC|DC2|DC7|DC\+)$/.test(value);
+      if (service === 'almuerzo') return /^(M2|M7|M7R|C|T|DC|DC2|DC7|DC\+)$/.test(value);
+      if (service === 'cena') return /^(C|T|T2|DC|DC2|DC7|DC\+)$/.test(value);
+      return false;
+    }
+
+    function helpersForService(dayIndex, service, usedHelpers = new Set()) {
+      if (!state.weeklyHelpers.length) return fallbackHelpers().filter((helper) => !usedHelpers.has(normalizePerson(helper)));
+      const available = state.weeklyHelpers
+        .filter((helper) => isAvailableForService(helper.shifts[dayIndex], service))
+        .map((helper) => helper.name)
+        .filter((name) => !usedHelpers.has(normalizePerson(name)));
+      return available.length ? available : fallbackHelpers().filter((helper) => !usedHelpers.has(normalizePerson(helper)));
+    }
+
+    function pickHelper(dayIndex, service, usedHelpers, offset) {
+      const helpers = helpersForService(dayIndex, service, usedHelpers);
+      if (!helpers.length) return '';
+      const selected = helpers[(dayIndex + offset) % helpers.length] || helpers[0];
+      usedHelpers.add(normalizePerson(selected));
+      return selected;
+    }
+
+    function buildSilverRows() {
+      const days = weekDayLabels();
+      const grid = document.getElementById('silverGrid');
+      const usedHelpers = new Set();
+      let pendingCount = 0;
+      grid.innerHTML = '<label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>';
+      days.forEach((day, dayIndex) => {
+        const breakfastHelpers = helpersForService(dayIndex, 'desayuno', usedHelpers);
+        const breakfast = pickHelper(dayIndex, 'desayuno', usedHelpers, 0);
+        if (!breakfast) pendingCount += 1;
+        const lunchHelpers = helpersForService(dayIndex, 'almuerzo', usedHelpers);
+        const lunch = pickHelper(dayIndex, 'almuerzo', usedHelpers, 3);
+        if (!lunch) pendingCount += 1;
+        const dinnerHelpers = helpersForService(dayIndex, 'cena', usedHelpers);
+        const dinner = pickHelper(dayIndex, 'cena', usedHelpers, 6);
+        if (!dinner) pendingCount += 1;
+        grid.insertAdjacentHTML('beforeend', `
+          <input value="${day}" aria-label="${day}" readonly>
+          ${silverSelect(day, 'desayuno', breakfastHelpers, breakfast)}
+          ${silverSelect(day, 'almuerzo', lunchHelpers, lunch)}
+          ${silverSelect(day, 'cena', dinnerHelpers, dinner)}
+        `);
+      });
+      return { usedCount: usedHelpers.size, pendingCount };
+    }
+
+    function silverSelect(day, service, helpers, selected) {
+      const options = ['', ...helpers].map((helper) => {
+        const isSelected = helper === selected ? ' selected' : '';
+        return `<option value="${escapeAttr(helper)}"${isSelected}>${helper || 'Pendiente'}</option>`;
+      }).join('');
       return `<select class="silver-input" data-day="${day}" data-service="${service}" aria-label="${day} ${service}">${options}</select>`;
     }
 
     document.getElementById('createSilverBtn').addEventListener('click', () => {
       const builder = document.getElementById('silverBuilder');
-      buildSilverRows();
+      const silverResult = buildSilverRows();
       builder.hidden = false;
       state.silverCreated = true;
       updateStatus();
-      appendLog('Planilla de plateria creada dentro de ChamAsesor.');
+      if (silverResult.pendingCount) {
+        appendLog(`Planilla de plateria creada con ${silverResult.usedCount} ayudantes sin repetir. Quedan ${silverResult.pendingCount} servicios pendientes por falta de ayudantes disponibles.`);
+      } else {
+        appendLog(`Planilla de plateria creada sin repetir ayudantes: ${silverResult.usedCount} asignaciones unicas.`);
+      }
+      saveDraft();
     });
 
     document.getElementById('clearSilverBtn').addEventListener('click', () => {
-      document.getElementById('silverExcel').value = '';
       document.getElementById('silverBuilder').hidden = true;
       document.getElementById('silverGrid').innerHTML = '<label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>';
-      state.files.silver = null;
       state.silverCreated = false;
       updateStatus();
       appendLog('Plateria limpiada.');
+      saveDraft();
     });
+
+    document.getElementById('silverGrid').addEventListener('change', saveDraft);
 
     document.querySelectorAll('.segmented button').forEach((button) => {
       button.addEventListener('click', () => {
@@ -932,6 +1303,7 @@ function showApp() {
         state.ranges = Number(button.dataset.ranges);
         updateStatus();
         appendLog(`Cena configurada con ${state.ranges} rangos.`);
+        saveDraft();
       });
     });
 
@@ -1058,6 +1430,7 @@ function showApp() {
       document.querySelectorAll('.task-input').forEach((input) => {
         input.addEventListener('input', () => {
           input.closest('.task-row').classList.add('changed');
+          saveDraft();
         });
       });
     }
@@ -1094,6 +1467,22 @@ function showApp() {
       return result;
     }
 
+    function duplicateSilverHelpers() {
+      const seen = new Map();
+      const duplicates = [];
+      document.querySelectorAll('.silver-input').forEach((input) => {
+        const normalized = normalizePerson(input.value);
+        if (!normalized) return;
+        const place = `${input.dataset.day} ${input.dataset.service}`;
+        if (seen.has(normalized)) {
+          duplicates.push(`${input.value}: ${seen.get(normalized)} y ${place}`);
+        } else {
+          seen.set(normalized, place);
+        }
+      });
+      return duplicates;
+    }
+
     function validateTaskEdits() {
       const plateria = getPlateriaByService();
       const conflicts = [];
@@ -1114,42 +1503,51 @@ function showApp() {
       renderBoard(true);
       bindTaskEditors();
       appendLog('Ejemplo cargado con estructura de Semana 25.');
+      board.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      saveDraft();
     });
 
     document.getElementById('reviewBtn').addEventListener('click', () => {
       updateStatus();
       const missing = [];
-      if (!state.files.weekly && !state.files.photo) missing.push('Excel general o foto de planilla');
-      if (!state.files.silver && !state.silverCreated) missing.push('Plateria semanal');
+      if (!state.files.weekly && !state.savedFiles.weekly) missing.push('Excel general');
+      if (!state.silverCreated) missing.push('Plateria desde ayudantes');
       if (missing.length) {
         appendLog(`Revision: falta ${missing.join(' y ')}.`);
       } else {
         appendLog('Revision: archivos principales cargados. Listo para enviar a ChamAsesor.');
       }
       const taskConflicts = validateTaskEdits();
+      const silverDuplicates = duplicateSilverHelpers();
       document.getElementById('warningsList').innerHTML = `
         <div class="status-row"><span>Turnos y libres</span>${pill('Revisado', 'ok')}</div>
-        <div class="status-row"><span>Plateria sin duplicados</span>${pill(taskConflicts.length ? 'Conflicto' : 'Revisado', taskConflicts.length ? 'danger' : 'ok')}</div>
+        <div class="status-row"><span>Plateria sin duplicados</span>${pill(silverDuplicates.length ? 'Repetidos' : 'Revisado', silverDuplicates.length ? 'danger' : 'ok')}</div>
         <div class="status-row"><span>Personal de C colocado</span>${pill('Revisar al generar', 'warn')}</div>
         <div class="status-row"><span>Tareas de cierre</span>${pill(taskConflicts.length ? 'Corregir' : 'Revisado', taskConflicts.length ? 'danger' : 'ok')}</div>
       `;
+      silverDuplicates.forEach((item) => appendLog(`Aviso plateria repetida: ${item}`));
       if (taskConflicts.length) {
         taskConflicts.forEach((item) => appendLog(`Aviso: ${item}`));
       } else {
         appendLog('Avisos revisados: tareas de cierre sin conflicto visible con plateria.');
       }
+      saveDraft();
     });
 
     document.getElementById('generateBtn').addEventListener('click', () => {
-      renderBoard(Boolean(state.files.weekly || state.files.silver));
+      renderBoard(Boolean(state.files.weekly || state.savedFiles.weekly || state.silverCreated));
       bindTaskEditors();
-      appendLog('Vista previa generada. En la version final, ChamAsesor creara PDF, PNG y HTML editable.');
+      appendLog('Cuadrante generado en vista previa. Revisa rangos, plateria y tareas antes de imprimir.');
+      board.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      saveDraft();
     });
 
     document.getElementById('beforePrintBtn').addEventListener('click', () => {
       const panel = document.getElementById('printPanel');
       panel.hidden = !panel.hidden;
       appendLog(panel.hidden ? 'Opciones de impresion cerradas.' : 'Opciones antes de imprimir abiertas.');
+      if (!panel.hidden) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      saveDraft();
     });
 
     document.getElementById('adminBtn').addEventListener('click', () => {
@@ -1167,6 +1565,7 @@ function showApp() {
       appendLog(`Regla guardada para responsable: ${title}`);
       document.getElementById('ruleTitle').value = '';
       document.getElementById('ruleText').value = '';
+      saveDraft();
     });
 
     document.getElementById('previewPdfBtn').addEventListener('click', () => {
@@ -1186,9 +1585,16 @@ function showApp() {
       window.print();
     });
 
+    document.getElementById('toggleLogBtn').addEventListener('click', () => {
+      const panel = document.getElementById('logPanel');
+      panel.hidden = !panel.hidden;
+      document.getElementById('toggleLogBtn').textContent = panel.hidden ? 'Ver registro' : 'Ocultar registro';
+    });
+
     document.getElementById('logoutBtn').addEventListener('click', () => {
       showLogin();
     });
+    restoreDraft();
     showApp();
   </script>
 </body>
