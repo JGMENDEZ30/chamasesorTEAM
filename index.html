@@ -771,7 +771,7 @@
         <div>
           <h2>ChamAsesor</h2>
           <p class="subtitle">Cuadrantes, turnos y plateria</p>
-          <span class="version-badge">VERSION NUEVA 22/06 - NOMBRES CORTOS - SIN DATOS VIEJOS</span>
+          <span class="version-badge">VERSION NUEVA 22/06 - LEE EXCEL REAL - NOMBRES CORTOS</span>
         </div>
         <div class="actions">
           <button class="btn primary" id="generateBtn">Generar cuadrante</button>
@@ -780,7 +780,7 @@
         </div>
       </div>
 
-      <div class="action-feedback" id="actionFeedback">VERSION NUEVA 22/06 cargada. Sube el cuadrante semanal (Excel) para empezar limpio.</div>
+      <div class="action-feedback" id="actionFeedback">VERSION NUEVA 22/06 cargada. Lee Excel con Nombre Completo y avisa si faltan camareros/ayudantes.</div>
 
       <div class="grid">
         <section class="panel">
@@ -1013,8 +1013,8 @@ function showApp() {
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
-    const STORAGE_KEY = 'chamasesor-borrador-v2-limpio';
-    const APP_VERSION = '2026-06-22-1418-version-visible-limpia';
+    const STORAGE_KEY = 'chamasesor-borrador-v4-excel-real';
+    const APP_VERSION = '2026-06-22-1538-excel-real-nombre-completo';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -1049,8 +1049,14 @@ function showApp() {
       return weeklyPeopleCount() > 0;
     }
 
+    function hasServicePeople() {
+      return (state.weeklyPeople.camareros?.length || 0) > 0
+        || (state.weeklyPeople.ayudantes?.length || 0) > 0;
+    }
+
     function weeklyStatus() {
       if (hasWeeklyPeople()) {
+        if (!hasServicePeople()) return pill(`${weeklyPeopleCount()} responsables`, 'warn');
         return pill(`${weeklyPeopleCount()} nombres`, 'ok');
       }
       if (state.files.weekly || state.savedFiles.weekly) {
@@ -1331,45 +1337,103 @@ function showApp() {
         barco: 'Barco',
         blanca: 'Blanca',
         blanco: 'Blanco',
+        cano: 'Cano',
         carlos: 'Carlos G.',
         'carlos g': 'Carlos G.',
         'carlos g.': 'Carlos G.',
+        'carlos alvarez beltran': 'Alvarez',
+        'carlos gonzalez': 'Carlos G.',
         chamo: 'Chamo',
         emelina: 'Emelina',
+        'emelina perez': 'Emelina',
         ernes: 'Ernes',
         ernesto: 'Ernes',
+        'ernesto m gonzalez placeres': 'Ernes',
         fernan: 'Fernando',
         fernd: 'Fernando',
         fernando: 'Fernando',
+        'fernando sanchez sanchez': 'Fernando',
         formo: 'Formo',
+        'gumersindo formoso pais': 'Formo',
         gedy: 'Gedi',
         gedi: 'Gedi',
         jenny: 'Jenny',
+        'jenny fung': 'Jenny',
         'j carlos': 'J. Carlos',
         'j. carlos': 'J. Carlos',
+        'jose carlos rodriguez cobas': 'J. Carlos',
+        'jose gregorio mendez centeno': 'Chamo',
+        'jose manuel barco yecerra': 'Barco',
         juan: 'Juan Pedro',
         'juan pedro': 'Juan Pedro',
+        'juan pedro jorge clemente': 'Juan Pedro',
         lidia: 'Lidia',
+        'lidia palmeiro freixinet': 'Lidia',
         loa: 'Loa',
+        loanes: 'Loa',
+        'loanes quinonez': 'Loa',
         lola: 'Lola',
         lucia: 'Lucia',
+        'lucia n carrizales': 'Lucia',
+        manuela: 'Manuela',
+        'manuela piris gomez': 'Manuela',
         marina: 'Marina',
+        'marina agra sixto': 'Marina',
         mateo: 'Mateo',
+        'mateo reyes montelongo': 'Mateo',
         povi: 'Povi',
+        'povilas sarunas': 'Povi',
         roman: 'Roman',
+        'roman vedovato': 'Roman',
         seve: 'Seve',
         severo: 'Seve',
+        'severo rogelio perez gonzalez': 'Seve',
         vero: 'Vero',
+        'veronica ippoliti': 'Vero',
         yaiza: 'Yaiza G.',
         'yaiza g': 'Yaiza G.',
         'yaiza g.': 'Yaiza G.',
+        'yaiza gonzalez dorta': 'Yaiza G.',
         'yaiza m': 'Yaiza M.',
         'yaiza m.': 'Yaiza M.',
+        'yaiza magdalena alayon': 'Yaiza M.',
         yessi: 'Yessi',
+        'yessica soriano': 'Yessi',
         yuriy: 'Yuriy',
-        yusi: 'Yusi'
+        yusi: 'Yusi',
+        yusileidy: 'Yusi',
+        'yusileidy falcon': 'Yusi',
+        anley: 'Anley',
+        'anley m pena martinez': 'Anley',
+        'atteneri hernandez vega': 'Atteneri',
+        'blanca nieves medina': 'Blanca',
+        'franchesca trinidad mateo': 'Franchesca',
+        'laureano cano cano': 'Cano'
       };
+      if (/^severo\b/.test(key)) return 'Seve';
+      if (/^ernesto\b/.test(key)) return 'Ernes';
+      if (/^j\s*\.?\s*carlos\b/.test(key)) return 'J. Carlos';
+      if (/^carlos\b/.test(key)) return 'Carlos G.';
+      if (/^eduardo\b/.test(key)) return 'Eduardo';
+      if (/^gediminas\b|^gedi\b|^gedy\b/.test(key)) return 'Gedi';
+      if (/^laureano\b|^cano\b/.test(key)) return 'Cano';
+      if (/^juan\s+pedro\b/.test(key)) return 'Juan Pedro';
+      if (/^yaiza\s*g\b/.test(key)) return 'Yaiza G.';
+      if (/^yaiza\s*m\b/.test(key)) return 'Yaiza M.';
+      if (/^fern/.test(key)) return 'Fernando';
+      if (/^jose\s+gregorio\b/.test(key)) return 'Chamo';
+      if (/^jose\s+carlos\b/.test(key)) return 'J. Carlos';
+      if (/^jose\s+manuel\s+barco\b/.test(key)) return 'Barco';
+      if (/^yusileidy\b/.test(key)) return 'Yusi';
+      if (/^loanes\b/.test(key)) return 'Loa';
       return names[key] || raw;
+    }
+
+    function displayPerson(value) {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      if (/^(Completar|Cada rango|Cerrado)$/i.test(text)) return text;
+      return preferredName(text);
     }
 
     function parseWeeklyPeople(rows) {
@@ -1378,6 +1442,33 @@ function showApp() {
         camareros: [],
         ayudantes: []
       };
+      const validShiftPattern = /^(M|M7|M7R|M8|M8R|M2|T|T2|C|DC|DC2|DC7|DC\+|L|V|ILT|HS|P\.R|PR|P\.R\.|C\.S\.S|CSS)$/i;
+      const groupFromRole = (roleText, fallback = '') => {
+        const value = normalizePerson(roleText);
+        if (/ayudante/.test(value)) return 'ayudantes';
+        if (/camarer|camarero|camarera/.test(value)) return 'camareros';
+        if (/director|jefe|sector|responsable|asistente/.test(value)) return 'responsables';
+        return fallback;
+      };
+      const tableHeader = rows.findIndex((row) => row.some((cell) => /nombre\s+completo/i.test(String(cell || ''))));
+      if (tableHeader >= 0) {
+        const header = rows[tableHeader].map((cell) => String(cell || '').trim().toLowerCase());
+        const nameIndex = header.findIndex((cell) => /nombre\s+completo/.test(cell));
+        const roleIndex = header.findIndex((cell) => /cargo|secci/.test(cell));
+        const dayIndexes = header
+          .map((cell, index) => (/lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo/.test(cell) ? index : -1))
+          .filter((index) => index >= 0)
+          .slice(0, 7);
+        rows.slice(tableHeader + 1).forEach((row) => {
+          const name = preferredName(row[nameIndex]);
+          const shifts = dayIndexes.map((index) => normalizeShift(row[index]));
+          const validCount = shifts.filter((shift) => validShiftPattern.test(shift)).length;
+          if (!name || validCount < 3) return;
+          const group = groupFromRole(row[roleIndex], 'camareros');
+          people[group].push({ name, shifts });
+        });
+        return people;
+      }
       let inHelpers = false;
       let section = '';
       const sectionFromText = (text) => {
@@ -1422,7 +1513,7 @@ function showApp() {
           .map((cells) => {
             const name = preferredName(cells[0]);
             const shifts = cells.slice(1, 8).map(normalizeShift);
-            const validShifts = shifts.filter((shift) => /^(M|M7|M7R|M8|M8R|M2|T|T2|C|DC|DC2|DC7|DC\+|L|V|ILT|HS|P\.R|PR|C\.S\.S|CSS)$/i.test(shift));
+            const validShifts = shifts.filter((shift) => validShiftPattern.test(shift));
             return { name, shifts, validCount: validShifts.length };
           })
           .filter((item) => item.name && item.validCount >= 3);
@@ -1638,14 +1729,13 @@ function showApp() {
     }
 
     function peopleForService(group, dayIndex, service, usedPeople = new Set()) {
-      const hasLoadedSchedule = Boolean(state.files.weekly || state.savedFiles.weekly);
       const people = state.weeklyPeople?.[group] || [];
       if (!people.length) {
         return [];
       }
       const available = people
         .filter((person) => isAvailableForService(person.shifts[dayIndex], service))
-        .map((person) => person.name)
+        .map((person) => displayPerson(person.name))
         .filter((name) => !usedPeople.has(normalizePerson(name)));
       return available;
     }
@@ -1664,6 +1754,14 @@ function showApp() {
       const selected = people[(dayIndex + offset) % people.length] || people[0];
       usedPeople.add(normalizePerson(selected));
       return selected;
+    }
+
+    function pickPersonFromGroups(groups, dayIndex, service, usedPeople, offset) {
+      for (const group of groups) {
+        const selected = pickPerson(group, dayIndex, service, usedPeople, offset);
+        if (selected) return selected;
+      }
+      return '';
     }
 
     function buildSilverRows() {
@@ -1751,16 +1849,21 @@ function showApp() {
     }
 
     function renderBoard(sample) {
-      if (!hasWeeklyPeople()) {
+      if (!hasWeeklyPeople() || !hasServicePeople()) {
+        const detail = hasWeeklyPeople()
+          ? 'Este Excel solo trae responsables. Falta la parte de camareros y ayudantes.'
+          : 'No hay nombres reales leidos del Excel.';
         board.innerHTML = `
           <div class="board-title">
             <strong>Cuadrante no generado</strong>
-            <span>Carga otra vez el Cuadrante semanal (Excel) para leer nombres y turnos reales.</span>
+            <span>Carga el Excel completo con responsables, camareros y ayudantes.</span>
           </div>
-          <div class="empty-state">No hay nombres reales leidos del Excel. La app no genera con datos antiguos para evitar asignaciones incorrectas.</div>
+          <div class="empty-state">${detail} La app no genera con datos incompletos para evitar asignaciones incorrectas.</div>
         `;
         board.removeAttribute('data-generated-day');
-        appendLog('No se genero el cuadrante: falta cargar otra vez el Cuadrante semanal (Excel) con nombres reales.');
+        appendLog(hasWeeklyPeople()
+          ? 'No se genero el cuadrante: este Excel solo trae responsables; falta camareros y ayudantes.'
+          : 'No se genero el cuadrante: falta cargar otra vez el Cuadrante semanal (Excel) con nombres reales.');
         updateStatus();
         saveDraft();
         return false;
@@ -1773,16 +1876,19 @@ function showApp() {
       const dayIndex = currentDayIndex();
       const usedHelpers = new Set();
       const usedCamareros = new Set();
-      const helper = (service, offset) => pickHelper(dayIndex, service, usedHelpers, offset) || empty;
-      const cam = (service, offset) => pickPerson('camareros', dayIndex, service, usedCamareros, offset) || empty;
+      const usedTasks = new Set();
+      const helper = (service, offset) => pickPersonFromGroups(['ayudantes', 'camareros'], dayIndex, service, usedHelpers, offset) || empty;
+      const cam = (service, offset) => pickPersonFromGroups(['camareros', 'responsables', 'ayudantes'], dayIndex, service, usedCamareros, offset) || empty;
       const silver = silverForSelectedDay();
-      const silverBreakfast = silver.desayuno || helper('desayuno', 10);
-      const silverLunch = silver.almuerzo || helper('almuerzo', 11);
-      const silverDinner = silver.cena || helper('cena', 12);
+      const silverBreakfast = displayPerson(silver.desayuno) || helper('desayuno', 10);
+      const silverLunch = displayPerson(silver.almuerzo) || helper('almuerzo', 11);
+      const silverDinner = displayPerson(silver.cena) || helper('cena', 12);
       [silverBreakfast, silverLunch, silverDinner].forEach((name) => {
         const normalized = normalizePerson(name);
         if (normalized && normalized !== normalizePerson(empty)) usedHelpers.add(normalized);
+        if (normalized && normalized !== normalizePerson(empty)) usedTasks.add(normalized);
       });
+      const taskWorker = (service, offset) => pickPersonFromGroups(['ayudantes', 'camareros', 'responsables'], dayIndex, service, usedTasks, offset) || empty;
       const breakfast1 = helper('desayuno', 0);
       const breakfast2 = helper('desayuno', 1);
       const breakfast3 = helper('desayuno', 2);
@@ -1821,7 +1927,7 @@ function showApp() {
             ${range('4', 'Rango 4', breakfastCam4, breakfast4)}
             ${range('T', 'Terraza', breakfastTerrace, '')}
             <div class="notes">
-              ${note('Cafeteras', empty)}
+              ${note('Cafeteras', taskWorker('desayuno', 20))}
               ${note('Plateria desayuno', silverBreakfast)}
             </div>
           </article>
@@ -1832,7 +1938,7 @@ function showApp() {
             ${range('T', 'Terraza', lunchTerrace, '')}
             <div class="notes">
               ${note('Plateria almuerzo', silverLunch)}
-              ${note('Atenciones', empty)}
+              ${note('Atenciones', taskWorker('almuerzo', 21))}
             </div>
           </article>
           <article class="service">
@@ -1844,7 +1950,7 @@ function showApp() {
             ${range('T', 'Terraza', dinnerTerrace, '')}
             ${range('M', 'Mediterraneo', medText, '')}
             <div class="notes">
-              ${note('Caja', empty)}
+              ${note('Caja', taskWorker('cena', 22))}
               ${note('Plateria-recogida de pisos 18h', silverDinner)}
             </div>
           </article>
@@ -1852,33 +1958,33 @@ function showApp() {
         <div class="tasks-preview">
           <article class="task-card">
             <h4>Desayuno - tareas de cierre</h4>
-            ${task('desayuno', 'Cont/Ropa / Sal / Pl. cafe / M. Zumos', empty)}
-            ${task('desayuno', 'Tazas / lavar y sacar esterillas', empty)}
-            ${task('desayuno', 'Repartir material', empty)}
-            ${task('desayuno', 'Microondas / teteras', empty)}
-            ${task('desayuno', 'Azucar rangos', empty)}
-            ${task('desayuno', 'Cuberterio', empty)}
-            ${task('desayuno', 'Tronas, basura, cascos, roturas, limpieza bodega', empty)}
-            ${task('desayuno', 'Cargar neveras', empty)}
-            ${task('desayuno', 'Baginbox - cerveza', empty)}
+            ${task('desayuno', 'Cont/Ropa / Sal / Pl. cafe / M. Zumos', taskWorker('desayuno', 23))}
+            ${task('desayuno', 'Tazas / lavar y sacar esterillas', taskWorker('desayuno', 24))}
+            ${task('desayuno', 'Repartir material', taskWorker('desayuno', 25))}
+            ${task('desayuno', 'Microondas / teteras', taskWorker('desayuno', 26))}
+            ${task('desayuno', 'Azucar rangos', taskWorker('desayuno', 27))}
+            ${task('desayuno', 'Cuberterio', taskWorker('desayuno', 28))}
+            ${task('desayuno', 'Tronas, basura, cascos, roturas, limpieza bodega', taskWorker('desayuno', 29))}
+            ${task('desayuno', 'Cargar neveras', taskWorker('desayuno', 30))}
+            ${task('desayuno', 'Baginbox - cerveza', taskWorker('desayuno', 31))}
           </article>
           <article class="task-card">
             <h4>Almuerzo - tareas de cierre</h4>
-            ${task('almuerzo', 'Basuras', '')}
-            ${task('almuerzo', 'Revisar bodega - baginbox 3/4', empty)}
-            ${task('almuerzo', 'Copas', empty)}
-            ${task('almuerzo', 'Cubiertos', empty)}
-            ${task('almuerzo', 'Saleros y pimenteros', empty)}
-            ${task('almuerzo', 'Salsas / sillas de ninos', empty)}
-            ${task('almuerzo', 'Rellenado de aparadores', empty)}
-            ${task('almuerzo', 'Repartir cartas / repartir material', empty)}
-            ${task('almuerzo', 'Limpieza de grifos', empty)}
+            ${task('almuerzo', 'Basuras', taskWorker('almuerzo', 32))}
+            ${task('almuerzo', 'Revisar bodega - baginbox 3/4', taskWorker('almuerzo', 33))}
+            ${task('almuerzo', 'Copas', taskWorker('almuerzo', 34))}
+            ${task('almuerzo', 'Cubiertos', taskWorker('almuerzo', 35))}
+            ${task('almuerzo', 'Saleros y pimenteros', taskWorker('almuerzo', 36))}
+            ${task('almuerzo', 'Salsas / sillas de ninos', taskWorker('almuerzo', 37))}
+            ${task('almuerzo', 'Rellenado de aparadores', taskWorker('almuerzo', 38))}
+            ${task('almuerzo', 'Repartir cartas / repartir material', taskWorker('almuerzo', 39))}
+            ${task('almuerzo', 'Limpieza de grifos', taskWorker('almuerzo', 40))}
           </article>
           <article class="task-card">
             <h4>Cena - tareas de cierre</h4>
             ${task('cena', 'Sillas de ninos', 'Cada rango')}
-            ${task('cena', 'Decoracion + reponer vinos', empty)}
-            ${task('cena', 'Ayuda pisos', empty)}
+            ${task('cena', 'Decoracion + reponer vinos', taskWorker('cena', 41))}
+            ${task('cena', 'Ayuda pisos', taskWorker('cena', 42))}
           </article>
         </div>
       `;
@@ -1887,13 +1993,15 @@ function showApp() {
     }
 
     function range(code, title, first, second) {
-      const secondLine = second ? `<div class="line"><span>Ayudant@</span><strong>${second}</strong></div>` : '';
+      const firstName = displayPerson(first);
+      const secondName = displayPerson(second);
+      const secondLine = secondName ? `<div class="line"><span>Ayudant@</span><strong>${secondName}</strong></div>` : '';
       return `
         <div class="range">
           <div class="range-code">${code}</div>
           <div class="range-body">
             <b>${title}</b>
-            <div class="line"><span>Camarer@</span><strong>${first}</strong></div>
+            <div class="line"><span>Camarer@</span><strong>${firstName}</strong></div>
             ${secondLine}
           </div>
         </div>
@@ -1901,14 +2009,14 @@ function showApp() {
     }
 
     function note(title, value) {
-      return `<div class="note"><span>${title}</span><strong>${value}</strong></div>`;
+      return `<div class="note"><span>${title}</span><strong>${displayPerson(value)}</strong></div>`;
     }
 
     function task(service, title, value) {
       return `
         <div class="task-row" data-service="${service}" data-task="${title}">
           <span>${title}</span>
-          <input class="task-input" value="${escapeAttr(value)}" aria-label="${title}">
+          <input class="task-input" value="${escapeAttr(displayPerson(value))}" aria-label="${title}">
         </div>
       `;
     }
