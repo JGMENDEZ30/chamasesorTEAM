@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuadrante Semana 27</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #f5f5f5; }
+        h1 { text-align: center; color: #2c3e50; }
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        th { background: #3498db; color: white; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .libre { background: #e8f4fc !important; }
+        .vacaciones { background: #fff3cd !important; }
+        .baja { background: #f8d7da !important; }
+        .header { background: #2980b9; color: white; }
+        @media (max-width: 768px) {
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; }
+            tr { margin-bottom: 15px; border: 1px solid #ddd; }
+            td { border: none; border-bottom: 1px solid #ddd; position: relative; padding-left: 50%; }
+            td:before { content: attr(data-label); position: absolute; left: 10px; font-weight: bold; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Cuadrante Semana 27 - Junio/Julio 2026</h1>
+    <table>
+        <tr class="header">
+            <th>Nombre</th>
+            <th>Lunes 29</th>
+            <th>Martes 30</th>
+            <th>Miércoles 1</th>
+            <th>Jueves 2</th>
+            <th>Viernes 3</th>
+            <th>Sábado 4</th>
+            <th>Domingo 5</th>
+        </tr>
+        <tr><td data-label="Nombre">Eduardo</td><td data-label="Lunes">L</td><td data-label="Martes">M8</td><td data-label="Miércoles">M8</td><td data-label="Jueves">DC</td><td data-label="Viernes">DC</td><td data-label="Sábado">DC</td><td data-label="Domingo">DC</td></tr>
+        <tr><td data-label="Nombre">Gedi</td><td data-label="Lunes">DC</td><td data-label="Martes">T</td><td data-label="Miércoles">DC</td><td data-label="Jueves">C</td><td data-label="Viernes">C</td><td data-label="Sábado">L</td><td data-label="Domingo">L</td></tr>
+        <tr><td data-label="Nombre">Cano</td><td data-label="Lunes">C</td><td data-label="Martes">DC</td><td data-label="Miércoles">T</td><td data-label="Jueves">L</td><td data-label="Viernes">L</td><td data-label="Sábado">C</td><td data-label="Domingo">C</td></tr>
+        <tr><td data-label="Nombre">Juan Pedro</td><td data-label="Lunes">M2</td><td data-label="Martes">V</td><td data-label="Miércoles">V</td><td data-label="Jueves">V</td><td data-label="Viernes">V</td><td data-label="Sábado">V</td><td data-label="Domingo">V</td></tr>
+        <tr><td data-label="Nombre">Seve</td><td data-label="L
