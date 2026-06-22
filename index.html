@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ChamAsesor</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <style>
     :root {
       --bg: #eef3f8;
@@ -599,6 +600,41 @@
     .task-row.changed .task-input {
       background: #fff7ed;
     }
+    .pdf-viewer {
+      display: grid;
+      gap: 10px;
+    }
+    .pdf-toolbar,
+    .edit-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .pdf-canvas-wrap {
+      min-height: 260px;
+      max-height: 70vh;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+      text-align: center;
+      padding: 10px;
+    }
+    #pdfCanvas {
+      max-width: 100%;
+      background: #fff;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+    }
+    .board.editing {
+      outline: 3px solid #0f766e;
+      outline-offset: 3px;
+    }
+    .board.editing [contenteditable="true"] {
+      border-radius: 4px;
+      background: #fff7ed;
+      box-shadow: inset 0 0 0 1px #fdba74;
+    }
     .log {
       min-height: 120px;
       padding: 10px;
@@ -673,6 +709,7 @@
         <div class="actions">
           <button class="btn" id="loadSample">Cargar ejemplo</button>
           <button class="btn primary" id="generateBtn">Generar cuadrante</button>
+          <button class="btn" id="clearBoardBtn">Limpiar cuadrante general</button>
           <button class="btn print" id="beforePrintBtn">Antes de imprimir</button>
           <button class="btn" id="logoutBtn">Inicio</button>
         </div>
@@ -707,6 +744,12 @@
             <div class="field">
               <label for="previousFile">Cuadrante anterior</label>
               <input id="previousFile" type="file" accept=".pdf,.html,.png,.jpg,.jpeg">
+            </div>
+            <div class="field">
+              <label>PDF WhatsApp</label>
+              <input id="whatsappPdfInput" type="file" accept="application/pdf,.pdf" hidden>
+              <button class="btn" type="button" id="uploadWhatsappPdfBtn">Subir PDF WhatsApp</button>
+              <p class="hint">Selecciona el PDF semanal recibido por WhatsApp. No se importa hasta confirmar.</p>
             </div>
             <div class="field">
               <label for="weekName">Semana</label>
@@ -759,6 +802,25 @@
                 <div class="status-row"><span>Plateria sin duplicados</span><span class="pill warn">Sin revisar</span></div>
                 <div class="status-row"><span>Personal de C colocado</span><span class="pill warn">Sin revisar</span></div>
                 <div class="status-row"><span>Tareas de cierre</span><span class="pill warn">Sin revisar</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" id="pdfPreviewPanel" hidden>
+            <h3>Vista previa del PDF</h3>
+            <div class="panel-body pdf-viewer">
+              <div class="pdf-toolbar">
+                <button class="btn" type="button" id="pdfPrevBtn">Pagina anterior</button>
+                <button class="btn" type="button" id="pdfNextBtn">Pagina siguiente</button>
+                <button class="btn" type="button" id="pdfZoomOutBtn">Zoom -</button>
+                <button class="btn" type="button" id="pdfZoomInBtn">Zoom +</button>
+                <button class="btn primary" type="button" id="confirmPdfImportBtn">Confirmar importacion</button>
+                <button class="btn" type="button" id="closePdfPreviewBtn">Cerrar vista previa</button>
+              </div>
+              <div class="hint" id="pdfPageInfo">Sin PDF cargado.</div>
+              <div class="pdf-canvas-wrap">
+                <canvas id="pdfCanvas"></canvas>
+                <div class="empty-state" id="pdfFallback" hidden>No se pudo mostrar la vista previa del PDF.</div>
               </div>
             </div>
           </div>
@@ -819,6 +881,19 @@
             <div class="empty-state">Todavia no hay cuadrante generado.</div>
           </div>
 
+          <div class="panel" id="editPanel">
+            <h3>Editar cuadrante antes de imprimir</h3>
+            <div class="panel-body">
+              <div class="edit-actions">
+                <button class="btn" type="button" id="editBoardBtn">Editar cuadrante</button>
+                <button class="btn primary" type="button" id="saveBoardEditBtn" disabled>Guardar cambios</button>
+                <button class="btn" type="button" id="cancelBoardEditBtn" disabled>Cancelar cambios</button>
+                <button class="btn print" type="button" id="printEditedBoardBtn">Imprimir cuadrante</button>
+              </div>
+              <p class="hint">En modo edicion puedes cambiar camareros, ayudantes, tareas y observaciones directamente en el cuadrante.</p>
+            </div>
+          </div>
+
           <button class="btn" type="button" id="toggleLogBtn">Ver registro</button>
           <div class="panel" id="logPanel" hidden>
             <h3>Registro</h3>
@@ -854,7 +929,18 @@ function showApp() {
         previous: null
       },
       savedFiles: {},
-      weeklyHelpers: []
+      weeklyHelpers: [],
+      pdf: {
+        file: null,
+        doc: null,
+        page: 1,
+        pages: 0,
+        zoom: 1,
+        text: ''
+      },
+      importedPdf: false,
+      editSnapshot: '',
+      lastWarnings: []
     };
 
     const log = document.getElementById('log');
@@ -891,6 +977,7 @@ function showApp() {
         <div class="status-row"><span>Excel general</span>${fileStatus('weekly') || pill('Pendiente', 'warn')}</div>
         <div class="status-row"><span>Plateria desde ayudantes</span>${state.silverCreated ? pill('Creada', 'ok') : pill('Pendiente', 'warn')}</div>
         <div class="status-row"><span>Cuadrante anterior</span>${fileStatus('previous') || pill('Opcional', 'warn')}</div>
+        <div class="status-row"><span>PDF WhatsApp</span>${state.importedPdf ? pill('Importado', 'ok') : (state.pdf.file ? pill('Cargado', 'warn') : pill('Opcional', 'warn'))}</div>
         <div class="status-row"><span>Cena</span>${pill(`${state.ranges} rangos`, 'ok')}</div>
       `;
     }
@@ -906,6 +993,7 @@ function showApp() {
         silverCreated: state.silverCreated,
         savedFiles: state.savedFiles,
         weeklyHelpers: state.weeklyHelpers,
+        importedPdf: state.importedPdf,
         boardHtml: board.innerHTML,
         logText: log.textContent,
         silverBuilderOpen: !document.getElementById('silverBuilder').hidden,
@@ -959,6 +1047,7 @@ function showApp() {
       state.silverCreated = Boolean(draft.silverCreated);
       state.savedFiles = draft.savedFiles || {};
       state.weeklyHelpers = draft.weeklyHelpers || [];
+      state.importedPdf = Boolean(draft.importedPdf);
       if (draft.boardHtml) {
         board.innerHTML = draft.boardHtml;
         restoreEditableValues();
@@ -1153,6 +1242,116 @@ function showApp() {
       applyScheduleFromText(file.name, 'el nombre del archivo');
     }
 
+    function clearGeneralBoard() {
+      if (!window.confirm('¿Seguro que quieres limpiar el cuadrante general del día?')) return;
+      board.innerHTML = `
+        <div class="board-title">
+          <strong>Vista previa del cuadrante</strong>
+          <span>Cuadrante general limpio. Listo para generar otra vez.</span>
+        </div>
+        <div class="empty-state">Todavia no hay cuadrante generado.</div>
+      `;
+      document.getElementById('warningsList').innerHTML = `
+        <div class="status-row"><span>Turnos y libres</span>${pill('Sin revisar', 'warn')}</div>
+        <div class="status-row"><span>Plateria sin duplicados</span>${pill('Sin revisar', 'warn')}</div>
+        <div class="status-row"><span>Personal de C colocado</span>${pill('Sin revisar', 'warn')}</div>
+        <div class="status-row"><span>Tareas de cierre</span>${pill('Sin revisar', 'warn')}</div>
+      `;
+      state.editSnapshot = '';
+      state.lastWarnings = [];
+      appendLog('Cuadrante general del dia limpiado. Semana, PDF, turnos y plateria se mantienen.');
+      saveDraft();
+    }
+
+    function pdfReady() {
+      return Boolean(window.pdfjsLib);
+    }
+
+    async function renderPdfPage() {
+      const fallback = document.getElementById('pdfFallback');
+      const canvas = document.getElementById('pdfCanvas');
+      const info = document.getElementById('pdfPageInfo');
+      if (!state.pdf.doc || !pdfReady()) {
+        canvas.hidden = true;
+        fallback.hidden = false;
+        info.textContent = 'No se pudo mostrar la vista previa del PDF.';
+        return;
+      }
+      try {
+        const page = await state.pdf.doc.getPage(state.pdf.page);
+        const viewport = page.getViewport({ scale: state.pdf.zoom });
+        const context = canvas.getContext('2d');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.hidden = false;
+        fallback.hidden = true;
+        await page.render({ canvasContext: context, viewport }).promise;
+        info.textContent = `Pagina ${state.pdf.page} de ${state.pdf.pages} · Zoom ${Math.round(state.pdf.zoom * 100)}%`;
+      } catch (error) {
+        canvas.hidden = true;
+        fallback.hidden = false;
+        info.textContent = 'No se pudo mostrar la vista previa del PDF.';
+      }
+    }
+
+    async function readPdfText(pdfDoc) {
+      const chunks = [];
+      for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
+        const page = await pdfDoc.getPage(pageNumber);
+        const content = await page.getTextContent();
+        chunks.push(content.items.map((item) => item.str).join(' '));
+      }
+      return chunks.join('\n');
+    }
+
+    function rowsFromPdfText(text) {
+      return String(text || '')
+        .split(/\n|(?=Jefes|Responsables|Camareros|Ayudantes|Leyenda)/i)
+        .map((line) => line.trim().split(/\s{2,}|\t|:/).map((cell) => cell.trim()).filter(Boolean))
+        .filter((row) => row.length);
+    }
+
+    async function loadWhatsappPdf(file) {
+      state.pdf.file = file;
+      state.importedPdf = false;
+      state.savedFiles.previous = fileLabel(file);
+      updateStatus();
+      document.getElementById('pdfPreviewPanel').hidden = false;
+      document.getElementById('pdfPreviewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (!pdfReady()) {
+        appendLog('No se pudo mostrar la vista previa del PDF.');
+        document.getElementById('pdfFallback').hidden = false;
+        return;
+      }
+      try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+        const buffer = await file.arrayBuffer();
+        state.pdf.doc = await pdfjsLib.getDocument({ data: buffer }).promise;
+        state.pdf.pages = state.pdf.doc.numPages;
+        state.pdf.page = 1;
+        state.pdf.zoom = 1;
+        state.pdf.text = await readPdfText(state.pdf.doc);
+        appendLog(`PDF WhatsApp cargado: ${fileLabel(file)}. Revisa la vista previa y confirma importacion.`);
+        await renderPdfPage();
+      } catch (error) {
+        appendLog('No se pudo mostrar la vista previa del PDF.');
+        document.getElementById('pdfFallback').hidden = false;
+      }
+    }
+
+    function confirmPdfImport() {
+      if (!state.pdf.text) {
+        appendLog('No hay texto del PDF para importar.');
+        return;
+      }
+      applyScheduleFromText(state.pdf.text, 'el PDF WhatsApp');
+      state.weeklyHelpers = parseWeeklyHelpers(rowsFromPdfText(state.pdf.text));
+      state.importedPdf = true;
+      updateStatus();
+      appendLog(state.weeklyHelpers.length ? `PDF importado: ${state.weeklyHelpers.length} ayudantes detectados.` : 'PDF importado. Revisa manualmente si no se detectaron ayudantes.');
+      saveDraft();
+    }
+
     function bindFile(id, key, label) {
       document.getElementById(id).addEventListener('change', async (event) => {
         state.files[key] = event.target.files[0] || null;
@@ -1171,6 +1370,38 @@ function showApp() {
 
     bindFile('weeklyExcel', 'weekly', 'Excel general');
     bindFile('previousFile', 'previous', 'Cuadrante anterior');
+
+    document.getElementById('clearBoardBtn').addEventListener('click', clearGeneralBoard);
+    document.getElementById('uploadWhatsappPdfBtn').addEventListener('click', () => {
+      document.getElementById('whatsappPdfInput').click();
+    });
+    document.getElementById('whatsappPdfInput').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (file) await loadWhatsappPdf(file);
+    });
+    document.getElementById('pdfPrevBtn').addEventListener('click', async () => {
+      if (!state.pdf.doc || state.pdf.page <= 1) return;
+      state.pdf.page -= 1;
+      await renderPdfPage();
+    });
+    document.getElementById('pdfNextBtn').addEventListener('click', async () => {
+      if (!state.pdf.doc || state.pdf.page >= state.pdf.pages) return;
+      state.pdf.page += 1;
+      await renderPdfPage();
+    });
+    document.getElementById('pdfZoomInBtn').addEventListener('click', async () => {
+      state.pdf.zoom = Math.min(2.5, state.pdf.zoom + 0.15);
+      await renderPdfPage();
+    });
+    document.getElementById('pdfZoomOutBtn').addEventListener('click', async () => {
+      state.pdf.zoom = Math.max(0.5, state.pdf.zoom - 0.15);
+      await renderPdfPage();
+    });
+    document.getElementById('closePdfPreviewBtn').addEventListener('click', () => {
+      document.getElementById('pdfPreviewPanel').hidden = true;
+      appendLog('Vista previa del PDF cerrada.');
+    });
+    document.getElementById('confirmPdfImportBtn').addEventListener('click', confirmPdfImport);
 
     document.getElementById('serviceDate').addEventListener('change', syncWeekFromDate);
     document.getElementById('weekName').addEventListener('change', (event) => {
@@ -1435,6 +1666,93 @@ function showApp() {
       });
     }
 
+    function setBoardEditing(enabled) {
+      board.classList.toggle('editing', enabled);
+      board.querySelectorAll('.range strong, .note strong, .range b, .task-row span').forEach((item) => {
+        item.contentEditable = enabled ? 'true' : 'false';
+      });
+      document.querySelectorAll('.task-input').forEach((input) => {
+        input.disabled = !enabled;
+      });
+      document.getElementById('editBoardBtn').disabled = enabled;
+      document.getElementById('saveBoardEditBtn').disabled = !enabled;
+      document.getElementById('cancelBoardEditBtn').disabled = !enabled;
+      if (enabled) appendLog('Modo edicion abierto. Puedes corregir rangos, tareas y observaciones antes de imprimir.');
+    }
+
+    function editableBoardValues() {
+      snapshotEditableValues();
+      return board.innerHTML;
+    }
+
+    function assignedPeopleFromBoard() {
+      const values = [];
+      board.querySelectorAll('.range strong, .note strong, .task-input').forEach((item) => {
+        values.push(item.value !== undefined ? item.value : item.textContent);
+      });
+      return values.flatMap(splitPeople);
+    }
+
+    function currentDayIndex() {
+      const date = new Date(`${document.getElementById('serviceDate').value}T12:00:00`);
+      return (date.getDay() || 7) - 1;
+    }
+
+    function shiftForPerson(name) {
+      const normalized = normalizePerson(name);
+      const helper = state.weeklyHelpers.find((item) => normalizePerson(item.name) === normalized);
+      if (!helper) return '';
+      return normalizeShift(helper.shifts[currentDayIndex()]);
+    }
+
+    function peopleStatusWarnings() {
+      const statusLabels = {
+        L: 'libre',
+        V: 'vacaciones',
+        ILT: 'baja',
+        PR: 'permiso',
+        'P.R': 'permiso',
+        'C.S.S': 'C.S.S',
+        CSS: 'C.S.S'
+      };
+      return assignedPeopleFromBoard().flatMap((name) => {
+        const shift = shiftForPerson(name);
+        const label = statusLabels[shift];
+        return label ? [`${name} aparece asignado y esta de ${label}.`] : [];
+      });
+    }
+
+    function duplicateBoardPeople() {
+      const seen = new Map();
+      const duplicates = [];
+      assignedPeopleFromBoard().forEach((name) => {
+        if (seen.has(name)) duplicates.push(`${name} esta repetido en el cuadrante.`);
+        seen.set(name, true);
+      });
+      return duplicates;
+    }
+
+    function plateriaRangeConflicts() {
+      const plateria = Object.values(getPlateriaByService()).filter(Boolean);
+      const rangePeople = [];
+      board.querySelectorAll('.range strong').forEach((item) => {
+        rangePeople.push(...splitPeople(item.textContent));
+      });
+      return plateria
+        .filter((person) => rangePeople.includes(person))
+        .map((person) => `${person} esta en plateria y tambien en rango.`);
+    }
+
+    function collectPrintWarnings() {
+      return [
+        ...duplicateBoardPeople(),
+        ...plateriaRangeConflicts(),
+        ...peopleStatusWarnings(),
+        ...validateTaskEdits(),
+        ...duplicateSilverHelpers().map((item) => `Plateria repetida: ${item}`)
+      ];
+    }
+
     function normalizePerson(value) {
       return String(value || '')
         .toLowerCase()
@@ -1498,6 +1816,57 @@ function showApp() {
       return conflicts;
     }
 
+    function displayWarnings(warnings) {
+      const list = document.getElementById('warningsList');
+      state.lastWarnings = warnings;
+      if (!warnings.length) {
+        list.innerHTML = `
+          <div class="status-row"><span>Personas repetidas</span>${pill('Revisado', 'ok')}</div>
+          <div class="status-row"><span>Plateria y rangos</span>${pill('Revisado', 'ok')}</div>
+          <div class="status-row"><span>Libres, vacaciones, bajas y permisos</span>${pill('Revisado', 'ok')}</div>
+          <div class="status-row"><span>Tareas de cierre</span>${pill('Revisado', 'ok')}</div>
+        `;
+        return;
+      }
+      list.innerHTML = warnings.map((warning) => `
+        <div class="status-row"><span>${warning}</span>${pill('Aviso', 'danger')}</div>
+      `).join('');
+    }
+
+    function reviewPrintWarnings() {
+      updateStatus();
+      const missing = [];
+      if (!state.files.weekly && !state.savedFiles.weekly && !state.importedPdf) missing.push('Excel general o PDF WhatsApp');
+      if (!state.silverCreated) missing.push('Plateria desde ayudantes');
+      if (missing.length) {
+        appendLog(`Revision: falta ${missing.join(' y ')}.`);
+      } else {
+        appendLog('Revision: datos principales cargados.');
+      }
+      const warnings = collectPrintWarnings();
+      displayWarnings(warnings);
+      if (warnings.length) {
+        warnings.forEach((item) => appendLog(`Aviso: ${item}`));
+      } else {
+        appendLog('Avisos revisados: no se detectaron conflictos visibles.');
+      }
+      saveDraft();
+      return warnings;
+    }
+
+    function printWithWarnings() {
+      const warnings = reviewPrintWarnings();
+      if (warnings.length) {
+        const message = `Hay ${warnings.length} aviso(s) antes de imprimir:\n\n${warnings.join('\n')}\n\n¿Quieres imprimir de todas formas?`;
+        if (!window.confirm(message)) {
+          appendLog('Impresion cancelada para revisar avisos.');
+          return;
+        }
+      }
+      appendLog('Abriendo impresion del navegador.');
+      window.print();
+    }
+
     document.getElementById('loadSample').addEventListener('click', () => {
       document.getElementById('notes').value = 'Ejemplo cargado: mantener rango desayuno/cena, plateria bloquea tareas, cena con 3 rangos.';
       renderBoard(true);
@@ -1507,32 +1876,7 @@ function showApp() {
       saveDraft();
     });
 
-    document.getElementById('reviewBtn').addEventListener('click', () => {
-      updateStatus();
-      const missing = [];
-      if (!state.files.weekly && !state.savedFiles.weekly) missing.push('Excel general');
-      if (!state.silverCreated) missing.push('Plateria desde ayudantes');
-      if (missing.length) {
-        appendLog(`Revision: falta ${missing.join(' y ')}.`);
-      } else {
-        appendLog('Revision: archivos principales cargados. Listo para enviar a ChamAsesor.');
-      }
-      const taskConflicts = validateTaskEdits();
-      const silverDuplicates = duplicateSilverHelpers();
-      document.getElementById('warningsList').innerHTML = `
-        <div class="status-row"><span>Turnos y libres</span>${pill('Revisado', 'ok')}</div>
-        <div class="status-row"><span>Plateria sin duplicados</span>${pill(silverDuplicates.length ? 'Repetidos' : 'Revisado', silverDuplicates.length ? 'danger' : 'ok')}</div>
-        <div class="status-row"><span>Personal de C colocado</span>${pill('Revisar al generar', 'warn')}</div>
-        <div class="status-row"><span>Tareas de cierre</span>${pill(taskConflicts.length ? 'Corregir' : 'Revisado', taskConflicts.length ? 'danger' : 'ok')}</div>
-      `;
-      silverDuplicates.forEach((item) => appendLog(`Aviso plateria repetida: ${item}`));
-      if (taskConflicts.length) {
-        taskConflicts.forEach((item) => appendLog(`Aviso: ${item}`));
-      } else {
-        appendLog('Avisos revisados: tareas de cierre sin conflicto visible con plateria.');
-      }
-      saveDraft();
-    });
+    document.getElementById('reviewBtn').addEventListener('click', reviewPrintWarnings);
 
     document.getElementById('generateBtn').addEventListener('click', () => {
       renderBoard(Boolean(state.files.weekly || state.savedFiles.weekly || state.silverCreated));
@@ -1541,6 +1885,36 @@ function showApp() {
       board.scrollIntoView({ behavior: 'smooth', block: 'start' });
       saveDraft();
     });
+
+    document.getElementById('editBoardBtn').addEventListener('click', () => {
+      if (!board.querySelector('.range, .note, .task-row')) {
+        appendLog('Primero genera un cuadrante para poder editarlo.');
+        return;
+      }
+      state.editSnapshot = editableBoardValues();
+      setBoardEditing(true);
+      saveDraft();
+    });
+
+    document.getElementById('saveBoardEditBtn').addEventListener('click', () => {
+      editableBoardValues();
+      setBoardEditing(false);
+      appendLog('Cambios del cuadrante guardados. La impresion usara esta version corregida.');
+      saveDraft();
+    });
+
+    document.getElementById('cancelBoardEditBtn').addEventListener('click', () => {
+      if (state.editSnapshot) {
+        board.innerHTML = state.editSnapshot;
+        restoreEditableValues();
+        bindTaskEditors();
+      }
+      setBoardEditing(false);
+      appendLog('Cambios cancelados. Se recupero la version anterior del cuadrante.');
+      saveDraft();
+    });
+
+    document.getElementById('printEditedBoardBtn').addEventListener('click', printWithWarnings);
 
     document.getElementById('beforePrintBtn').addEventListener('click', () => {
       const panel = document.getElementById('printPanel');
@@ -1580,10 +1954,7 @@ function showApp() {
       appendLog('Descargar PNG: pendiente de conectar al generador final.');
     });
 
-    document.getElementById('printBtn').addEventListener('click', () => {
-      appendLog('Abriendo impresion del navegador.');
-      window.print();
-    });
+    document.getElementById('printBtn').addEventListener('click', printWithWarnings);
 
     document.getElementById('toggleLogBtn').addEventListener('click', () => {
       const panel = document.getElementById('logPanel');
