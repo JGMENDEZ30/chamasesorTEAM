@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -5,40 +6,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cuadrante Semana 27</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #f5f5f5; }
-        h1 { text-align: center; color: #2c3e50; }
-        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-top: 15px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
-        th { background: #3498db; color: white; }
-        tr:nth-child(even) { background: #f9f9f9; }
-        .libre { background: #e8f4fc !important; }
+        body { font-family: Arial, sans-serif; margin: 15px; background: #f5f5f5; }
+        h1 { text-align: center; color: #2c3e50; font-size: 22px; }
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 3px 10px rgba(0,0,0,0.12); font-size: 14px; }
+        th, td { border: 1px solid #ccc; padding: 8px 6px; text-align: center; }
+        th { background: #2980b9; color: white; position: sticky; top: 0; font-weight: bold; }
+        td:first-child { text-align: left; font-weight: bold; background: #ecf0f1; }
+        tr:nth-child(even) { background: #f8f9fa; }
         .vacaciones { background: #fff3cd !important; }
         .baja { background: #f8d7da !important; }
-        .header { background: #2980b9; color: white; }
+        .libre { background: #d4e6f1 !important; }
         @media (max-width: 768px) {
-            table, thead, tbody, th, td, tr { display: block; }
-            thead tr { position: absolute; top: -9999px; left: -9999px; }
-            tr { margin-bottom: 15px; border: 1px solid #ddd; }
-            td { border: none; border-bottom: 1px solid #ddd; position: relative; padding-left: 50%; }
-            td:before { content: attr(data-label); position: absolute; left: 10px; font-weight: bold; }
+            table { font-size: 12px; }
+            th, td { padding: 6px 3px; }
         }
     </style>
 </head>
 <body>
     <h1>Cuadrante Semana 27 - Junio/Julio 2026</h1>
     <table>
-        <tr class="header">
+        <tr>
             <th>Nombre</th>
-            <th>Lunes 29</th>
-            <th>Martes 30</th>
-            <th>Miércoles 1</th>
-            <th>Jueves 2</th>
-            <th>Viernes 3</th>
-            <th>Sábado 4</th>
-            <th>Domingo 5</th>
+            <th>Lun 29</th>
+            <th>Mar 30</th>
+            <th>Mié 1</th>
+            <th>Jue 2</th>
+            <th>Vie 3</th>
+            <th>Sáb 4</th>
+            <th>Dom 5</th>
         </tr>
-        <tr><td data-label="Nombre">Eduardo</td><td data-label="Lunes">L</td><td data-label="Martes">M8</td><td data-label="Miércoles">M8</td><td data-label="Jueves">DC</td><td data-label="Viernes">DC</td><td data-label="Sábado">DC</td><td data-label="Domingo">DC</td></tr>
-        <tr><td data-label="Nombre">Gedi</td><td data-label="Lunes">DC</td><td data-label="Martes">T</td><td data-label="Miércoles">DC</td><td data-label="Jueves">C</td><td data-label="Viernes">C</td><td data-label="Sábado">L</td><td data-label="Domingo">L</td></tr>
-        <tr><td data-label="Nombre">Cano</td><td data-label="Lunes">C</td><td data-label="Martes">DC</td><td data-label="Miércoles">T</td><td data-label="Jueves">L</td><td data-label="Viernes">L</td><td data-label="Sábado">C</td><td data-label="Domingo">C</td></tr>
-        <tr><td data-label="Nombre">Juan Pedro</td><td data-label="Lunes">M2</td><td data-label="Martes">V</td><td data-label="Miércoles">V</td><td data-label="Jueves">V</td><td data-label="Viernes">V</td><td data-label="Sábado">V</td><td data-label="Domingo">V</td></tr>
-        <tr><td data-label="Nombre">Seve</td><td data-label="L
+        <tr><td>Eduardo</td><td>L</td><td>M8</td><td>M8</td><td>DC</td><td>DC</td><td>DC</td><td>DC</td></tr>
+        <tr><td>Gedi</td><td>DC</td><td>T</td><td>DC</td><td>C</td><td>C</td><td>L</td><td>L</td></tr>
+        <tr><td>Cano</td><td>C</td><td>DC</td><td>T</td><td>L</td><td>L</td><td>C</td><td>C</td></tr>
+        <tr><td>Juan Pedro</td><td>M2</td><td>V</td><td>V</td><td>V</td><td>V</td><td>V</td><td>V</td></tr>
+        <tr><td>Seve</td><td>L</td><td>L</td><td>C</td><td>DC</td><td>T</td><td>M7</td><td>DC</td></tr>
+        <tr><td>Chamo</td><td>DC</td><td>DC</td><td>DC</td><td>T</td><td>M7</td><td>L</td><td>L</td></tr>
+        <tr><td>Fernando</td><td>C</td><td>DC</td><td>DC</td><td>M2</td><td>L</td><td>L</td><td>T</td></tr>
+        <tr><td>Formo</td><td>DC</td><td>DC</td><td>T</td><td>M7</td><td>L</td><td>L</td><td>DC</td></tr>
+        <tr><td>Alvarez</td><td>DC</td><td>T</td><td>M7</td><td>L</td><td>L</td><td>DC</td><td>DC</td></tr>
+        <tr><td>Vero</td><td>L</td><td>L</td><td>DC</td><td>DC+</td><td>DC+</td><td>T</td><td>M7</td></tr>
+        <tr><td>Mateo</td><td>V</td><td>V</td><td>V</td><td>V</td><td>V</td><td>V</td><td>V</td></tr>
+        <tr><td>Lidia</td><td>M2</td><td>L</td><td>L</td><td>C</td><td>DC</td><td>DC</td><td>M2</td></tr>
+        <tr><td>Atteneri</td><td>M7</td><td>L</td><td>L</td><td>DC</td><td>C</td><td>DC+</td><td>DC+</td></tr>
+        <tr><td>Marina</td><td>T</td><td>M7</td><td>L</td><td>L</td><td>DC</td><td>C</td><td>DC</td></tr>
+        <tr><td>Blanco</td><td>L</td><td>DC</td><td>C.S.S</td><td>C.S.S</td><td>DC</td><td>M2</td><td>L</td></tr>
+        <tr><td>Franchesca</td><td>ilt</td><td>ilt</td><td>ilt</td><td>ilt</td><td>ilt</td><td>ilt</td><td>ilt</td></tr>
+        <tr><td>J. Carlos</td><td>L</td><td>C</td><td>DC</td><td>DC</td><td>T</td><td>M7</td><td>L</td></tr>
+        <tr><td>Barco</td><td>L</td><td>L</td><td>C</td><td>M2</td><td>DC</td><td>DC</td><td>T</td></tr>
+        <tr><td>Ernes</td><td>V</td><td>V</td><td>V</td><td>V</td><td>V</td><td>V</td><td>L</td></tr>
+        <tr><td>Yusi</td><td>M2</td><td>L</td><td>L</td><td>C</td><td>DC</td><td>DC</td><td>C</td></tr>
+        <tr><td>Jenny</td><td>DC</td><td>DC</td><td>V</td><td>V</td><td>V</td><td>V</td><td>V</td></tr>
+        <tr><td>Lucia</td><td>DC</td><td>T</td><td>M2</td><td>L</td><td>L</td><td>C</td><td>DC</td></tr>
+        <tr><td>Loa</td><td>DC</td><td>C</td><td>DC</td><td>M2</td><td>L</td><td>L</td><td>C</td></tr>
+        <tr><td>Manuela</td><td>L</td><td>L</td><td>C</td><td>T</td><td>M7</td><td>DC</td><td>DC</td></tr>
+        <tr><td>Blanca</td><td>C</td><td>M2</td><td>L</td><td>L</td><td>C</td><td>DC</td><td>DC</td></tr>
+        <tr><td>Povi</td><td>T</td><td>DC</td><td>DC</td><td>C</td><td>M2</td><td>L</td><td>L</td></tr>
+        <tr><td>Roman</td><td>DC</td><td>M2</td><td>L</td><td>L</td><td>C</td><td>DC</td><td>M2</td></tr>
+        <tr><td>Carlos</td><td>C</td><td>C</td><td>DC</td><td>DC</td><td>M2</td><td>L</td><td>L</td></tr>
+        <tr><td>Yaiza G.</td><td>L</td><td>L</td><td>C</td><td>DC</td><td>DC</td><td>T</td><td>M7</td></tr>
+        <tr><td>Yuriy</td><td>C</td><td>DC</td><td>M2</td><td>L</td><td>L</td><td>DC</td><td>M2</td></tr>
+        <tr><td>Emelina</td><td>L</td><td>C</td><td>T</td><td>DC</td><td>DC</td><td>M2</td><td>L</td></tr>
+        <tr><td>Yessi</td><td>M7R</td><td>M7R</td><td>M7R</td><td>M7R</td><td>L</td><td>L</td><td>V</td></tr>
+        <tr><td>Yaiza M.</td><td>M8R</td><td>M8R</td><td>M8R</td><td>M8R</td><td>M8R</td><td>L</td><td>L</td></tr>
+        <tr><td>Anley</td><td>ilt</td><td>ilt</td><td>ilt</td><td>ilt</td><td>ilt</td><td>ilt</td><td>ilt</td></tr>
+    </table>
+</body>
+</html>
