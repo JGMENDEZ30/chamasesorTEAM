@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ChamAsesor</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <style>
     :root {
       --bg: #eef3f8;
@@ -321,6 +320,27 @@
       color: #064e3b;
       background: var(--accent-soft);
     }
+    .day-picker {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .day-picker button {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      color: var(--ink);
+      background: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .day-picker button.active {
+      border-color: var(--accent);
+      color: #064e3b;
+      background: var(--accent-soft);
+    }
     .checklist {
       display: grid;
       gap: 8px;
@@ -611,8 +631,8 @@
       flex-wrap: wrap;
       align-items: center;
     }
-    .pdf-canvas-wrap {
-      min-height: 260px;
+    .photo-preview-wrap {
+      min-height: 220px;
       max-height: 70vh;
       overflow: auto;
       border: 1px solid var(--line);
@@ -621,10 +641,46 @@
       text-align: center;
       padding: 10px;
     }
-    #pdfCanvas {
-      max-width: 100%;
+    #referencePhoto {
+      max-width: none;
+      transform-origin: top center;
       background: #fff;
       box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+    }
+    .floating-reference {
+      position: sticky;
+      top: 8px;
+      z-index: 5;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, .16);
+    }
+    .floating-reference .photo-preview-wrap {
+      max-height: 46vh;
+    }
+    .work-with-reference {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 38%);
+      gap: 12px;
+      align-items: start;
+    }
+    .work-with-reference #photoPreviewPanel {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+    }
+    .work-with-reference #board,
+    .work-with-reference #editPanel {
+      grid-column: 1;
+    }
+    @media (max-width: 980px) {
+      .work-with-reference {
+        display: block;
+      }
+      .floating-reference {
+        position: sticky;
+        top: 0;
+      }
+      .floating-reference .photo-preview-wrap {
+        max-height: 36vh;
+      }
     }
     .board.editing {
       outline: 3px solid #0f766e;
@@ -684,7 +740,7 @@
       </div>
       <div class="step">
         <div class="step-num">1</div>
-        <div><strong>Subir Excel general</strong><span>Turnos por grupos; la plateria puede crearse desde ahi.</span></div>
+        <div><strong>Subir cuadrante semanal</strong><span>Turnos por grupos; la plateria puede crearse desde ahi.</span></div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
@@ -707,22 +763,20 @@
           <p class="subtitle">Cuadrantes, turnos y plateria</p>
         </div>
         <div class="actions">
-          <button class="btn" id="loadSample">Cargar ejemplo</button>
           <button class="btn primary" id="generateBtn">Generar cuadrante</button>
           <button class="btn" id="clearBoardBtn">Limpiar cuadrante general</button>
           <button class="btn print" id="beforePrintBtn">Antes de imprimir</button>
-          <button class="btn" id="logoutBtn">Inicio</button>
         </div>
       </div>
 
-      <div class="action-feedback" id="actionFeedback">Listo para trabajar. Sube el Excel general o crea la plateria desde ayudantes.</div>
+      <div class="action-feedback" id="actionFeedback">Listo para trabajar. Sube el cuadrante semanal o crea la plateria desde ayudantes.</div>
 
       <div class="grid">
         <section class="panel">
           <h3>Entrada de datos</h3>
           <div class="panel-body">
             <div class="field">
-              <label for="weeklyExcel">Excel general semanal</label>
+              <label for="weeklyExcel">Cuadrante semanal (Excel)</label>
               <input id="weeklyExcel" type="file" accept=".xlsx,.xls,.csv">
               <p class="hint">Un solo archivo con responsables, camareros, ayudantes y turnos de la semana.</p>
             </div>
@@ -732,7 +786,7 @@
                 <button class="btn" type="button" id="createSilverBtn">Crear desde ayudantes</button>
                 <button class="btn" type="button" id="clearSilverBtn">Limpiar plateria</button>
               </div>
-              <p class="hint">Se crea desde la zona de Ayudantes del Excel general. No hace falta subir otra planilla.</p>
+              <p class="hint">Se crea desde la zona de Ayudantes del cuadrante semanal. No hace falta subir otra planilla.</p>
               <div class="silver-builder" id="silverBuilder" hidden>
                 <label>Planilla de plateria semanal</label>
                 <p class="hint">Se llena con ayudantes disponibles segun sus turnos. Puedes cambiar cualquier nombre antes de imprimir.</p>
@@ -746,10 +800,10 @@
               <input id="previousFile" type="file" accept=".pdf,.html,.png,.jpg,.jpeg">
             </div>
             <div class="field">
-              <label>PDF WhatsApp</label>
-              <input id="whatsappPdfInput" type="file" accept="application/pdf,.pdf" hidden>
-              <button class="btn" type="button" id="uploadWhatsappPdfBtn">Subir PDF WhatsApp</button>
-              <p class="hint">Selecciona el PDF semanal recibido por WhatsApp. No se importa hasta confirmar.</p>
+              <label>Foto del cuadrante</label>
+              <input id="referencePhotoInput" type="file" accept="image/*" hidden>
+              <button class="btn" type="button" id="uploadReferencePhotoBtn">Subir foto del cuadrante</button>
+              <p class="hint">Solo para verla y comparar. No genera ni cambia datos automaticamente.</p>
             </div>
             <div class="field">
               <label for="weekName">Semana</label>
@@ -758,6 +812,7 @@
             <div class="field">
               <label for="serviceDate">Dia a generar</label>
               <input id="serviceDate" type="date" value="2026-06-18">
+              <div class="day-picker" id="weekDayPicker" aria-label="Dias de la semana"></div>
             </div>
             <div class="field">
               <label>Cena</label>
@@ -786,8 +841,8 @@
             <h3>Comprobaciones</h3>
             <div class="panel-body">
               <div class="status" id="statusList">
-                <div class="status-row"><span>Excel general</span><span class="pill warn">Pendiente</span></div>
-                <div class="status-row"><span>Plateria desde ayudantes</span><span class="pill warn">Pendiente</span></div>
+                <div class="status-row"><span>Cuadrante semanal</span><span class="pill warn">Sin cargar</span></div>
+                <div class="status-row"><span>Plateria desde ayudantes</span><span class="pill warn">Sin crear</span></div>
                 <div class="status-row"><span>Cuadrante anterior</span><span class="pill warn">Opcional</span></div>
                 <div class="status-row"><span>Cena</span><span class="pill ok">3 rangos</span></div>
               </div>
@@ -802,25 +857,6 @@
                 <div class="status-row"><span>Plateria sin duplicados</span><span class="pill warn">Sin revisar</span></div>
                 <div class="status-row"><span>Personal de C colocado</span><span class="pill warn">Sin revisar</span></div>
                 <div class="status-row"><span>Tareas de cierre</span><span class="pill warn">Sin revisar</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="panel" id="pdfPreviewPanel" hidden>
-            <h3>Vista previa del PDF</h3>
-            <div class="panel-body pdf-viewer">
-              <div class="pdf-toolbar">
-                <button class="btn" type="button" id="pdfPrevBtn">Pagina anterior</button>
-                <button class="btn" type="button" id="pdfNextBtn">Pagina siguiente</button>
-                <button class="btn" type="button" id="pdfZoomOutBtn">Zoom -</button>
-                <button class="btn" type="button" id="pdfZoomInBtn">Zoom +</button>
-                <button class="btn primary" type="button" id="confirmPdfImportBtn">Confirmar importacion</button>
-                <button class="btn" type="button" id="closePdfPreviewBtn">Cerrar vista previa</button>
-              </div>
-              <div class="hint" id="pdfPageInfo">Sin PDF cargado.</div>
-              <div class="pdf-canvas-wrap">
-                <canvas id="pdfCanvas"></canvas>
-                <div class="empty-state" id="pdfFallback" hidden>No se pudo mostrar la vista previa del PDF.</div>
               </div>
             </div>
           </div>
@@ -873,24 +909,41 @@
             </div>
           </div>
 
-          <div class="board" id="board">
-            <div class="board-title">
-              <strong>Vista previa del cuadrante</strong>
-              <span>Sube los archivos o carga un ejemplo para ver la estructura.</span>
-            </div>
-            <div class="empty-state">Todavia no hay cuadrante generado.</div>
-          </div>
-
-          <div class="panel" id="editPanel">
-            <h3>Editar cuadrante antes de imprimir</h3>
-            <div class="panel-body">
-              <div class="edit-actions">
-                <button class="btn" type="button" id="editBoardBtn">Editar cuadrante</button>
-                <button class="btn primary" type="button" id="saveBoardEditBtn" disabled>Guardar cambios</button>
-                <button class="btn" type="button" id="cancelBoardEditBtn" disabled>Cancelar cambios</button>
-                <button class="btn print" type="button" id="printEditedBoardBtn">Imprimir cuadrante</button>
+          <div class="work-area" id="workArea">
+            <div class="board" id="board">
+              <div class="board-title">
+                <strong>Vista previa del cuadrante</strong>
+                <span>Sube los archivos o carga un ejemplo para ver la estructura.</span>
               </div>
-              <p class="hint">En modo edicion puedes cambiar camareros, ayudantes, tareas y observaciones directamente en el cuadrante.</p>
+              <div class="empty-state">Todavia no hay cuadrante generado.</div>
+            </div>
+
+            <div class="panel" id="editPanel">
+              <h3>Editar cuadrante antes de imprimir</h3>
+              <div class="panel-body">
+                <div class="edit-actions">
+                  <button class="btn" type="button" id="editBoardBtn">Editar cuadrante</button>
+                  <button class="btn primary" type="button" id="saveBoardEditBtn" disabled>Guardar cambios</button>
+                  <button class="btn" type="button" id="cancelBoardEditBtn" disabled>Cancelar cambios</button>
+                  <button class="btn print" type="button" id="printEditedBoardBtn">Imprimir cuadrante</button>
+                </div>
+                <p class="hint">En modo edicion puedes cambiar camareros, ayudantes, tareas y observaciones directamente en el cuadrante.</p>
+              </div>
+            </div>
+
+            <div class="panel floating-reference" id="photoPreviewPanel" hidden>
+              <h3>Foto de referencia del cuadrante</h3>
+              <div class="panel-body pdf-viewer">
+                <div class="pdf-toolbar">
+                  <button class="btn" type="button" id="photoZoomOutBtn">Zoom -</button>
+                  <button class="btn" type="button" id="photoZoomInBtn">Zoom +</button>
+                  <button class="btn" type="button" id="closePhotoPreviewBtn">Cerrar foto</button>
+                </div>
+                <div class="hint" id="photoInfo">Sin foto cargada.</div>
+                <div class="photo-preview-wrap">
+                  <img id="referencePhoto" alt="Foto de referencia del cuadrante">
+                </div>
+              </div>
             </div>
           </div>
 
@@ -898,6 +951,7 @@
           <div class="panel" id="logPanel" hidden>
             <h3>Registro</h3>
             <div class="panel-body">
+              <button class="btn" type="button" id="clearLogBtn">Limpiar registro</button>
               <div class="log" id="log">Esperando datos...</div>
             </div>
           </div>
@@ -930,15 +984,11 @@ function showApp() {
       },
       savedFiles: {},
       weeklyHelpers: [],
-      pdf: {
+      photo: {
         file: null,
-        doc: null,
-        page: 1,
-        pages: 0,
-        zoom: 1,
-        text: ''
+        url: '',
+        zoom: 1
       },
-      importedPdf: false,
       editSnapshot: '',
       lastWarnings: []
     };
@@ -974,10 +1024,10 @@ function showApp() {
 
     function updateStatus() {
       statusList.innerHTML = `
-        <div class="status-row"><span>Excel general</span>${fileStatus('weekly') || pill('Pendiente', 'warn')}</div>
-        <div class="status-row"><span>Plateria desde ayudantes</span>${state.silverCreated ? pill('Creada', 'ok') : pill('Pendiente', 'warn')}</div>
+        <div class="status-row"><span>Cuadrante semanal</span>${fileStatus('weekly') || pill('Sin cargar', 'warn')}</div>
+        <div class="status-row"><span>Plateria desde ayudantes</span>${state.silverCreated ? pill('Creada', 'ok') : pill('Sin crear', 'warn')}</div>
         <div class="status-row"><span>Cuadrante anterior</span>${fileStatus('previous') || pill('Opcional', 'warn')}</div>
-        <div class="status-row"><span>PDF WhatsApp</span>${state.importedPdf ? pill('Importado', 'ok') : (state.pdf.file ? pill('Cargado', 'warn') : pill('Opcional', 'warn'))}</div>
+        <div class="status-row"><span>Foto referencia</span>${state.photo.file ? pill('Cargada', 'ok') : pill('Opcional', 'warn')}</div>
         <div class="status-row"><span>Cena</span>${pill(`${state.ranges} rangos`, 'ok')}</div>
       `;
     }
@@ -993,7 +1043,6 @@ function showApp() {
         silverCreated: state.silverCreated,
         savedFiles: state.savedFiles,
         weeklyHelpers: state.weeklyHelpers,
-        importedPdf: state.importedPdf,
         boardHtml: board.innerHTML,
         logText: log.textContent,
         silverBuilderOpen: !document.getElementById('silverBuilder').hidden,
@@ -1047,7 +1096,6 @@ function showApp() {
       state.silverCreated = Boolean(draft.silverCreated);
       state.savedFiles = draft.savedFiles || {};
       state.weeklyHelpers = draft.weeklyHelpers || [];
-      state.importedPdf = Boolean(draft.importedPdf);
       if (draft.boardHtml) {
         board.innerHTML = draft.boardHtml;
         restoreEditableValues();
@@ -1064,6 +1112,7 @@ function showApp() {
       }
       if (draft.logText) log.textContent = draft.logText;
       applyRangeButtons();
+      renderWeekDayPicker();
       updateStatus();
       appendLog('Borrador recuperado automaticamente.');
     }
@@ -1123,15 +1172,47 @@ function showApp() {
       const dateValue = document.getElementById('serviceDate').value;
       if (!dateValue) return;
       document.getElementById('weekName').value = `Semana ${isoWeekNumber(dateValue)}`;
+      renderWeekDayPicker();
     }
 
-    function syncDateFromWeek(text) {
+    function syncDateFromWeek(text, options = {}) {
       const week = weekFromText(text);
       if (!week) return false;
       const year = yearFromText(text);
+      const currentDate = document.getElementById('serviceDate').value;
       document.getElementById('weekName').value = `Semana ${week}`;
-      document.getElementById('serviceDate').value = dateToInputValue(mondayOfIsoWeek(year, week));
+      if (!(options.preserveDay && currentDate && isoWeekNumber(currentDate) === week && Number(currentDate.slice(0, 4)) === year)) {
+        document.getElementById('serviceDate').value = dateToInputValue(mondayOfIsoWeek(year, week));
+      }
+      renderWeekDayPicker();
       return true;
+    }
+
+    function setSelectedServiceDate(dateValue, logChange = false) {
+      if (!dateValue) return;
+      document.getElementById('serviceDate').value = dateValue;
+      syncWeekFromDate();
+      if (logChange) appendLog(`Dia seleccionado: ${dayName(dateValue)}.`);
+      saveDraft();
+    }
+
+    function renderWeekDayPicker() {
+      const picker = document.getElementById('weekDayPicker');
+      if (!picker) return;
+      const currentDate = document.getElementById('serviceDate').value;
+      if (!currentDate) {
+        picker.innerHTML = '';
+        return;
+      }
+      const monday = mondayFromDateValue(currentDate);
+      picker.innerHTML = Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + index);
+        const value = dateToInputValue(date);
+        const label = date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' }).replace('.', '');
+        const active = value === currentDate ? ' active' : '';
+        return `<button type="button" class="${active}" data-date="${value}">${label}</button>`;
+      }).join('');
     }
 
     function applyScheduleFromText(text, sourceLabel) {
@@ -1259,96 +1340,30 @@ function showApp() {
       `;
       state.editSnapshot = '';
       state.lastWarnings = [];
-      appendLog('Cuadrante general del dia limpiado. Semana, PDF, turnos y plateria se mantienen.');
+      appendLog('Cuadrante general del dia limpiado. Semana, turnos, foto y plateria se mantienen.');
       saveDraft();
     }
 
-    function pdfReady() {
-      return Boolean(window.pdfjsLib);
+    function renderReferencePhoto() {
+      const img = document.getElementById('referencePhoto');
+      if (!state.photo.url) return;
+      img.src = state.photo.url;
+      img.style.width = `${Math.round(state.photo.zoom * 100)}%`;
+      document.getElementById('photoInfo').textContent = `${fileLabel(state.photo.file)} · Zoom ${Math.round(state.photo.zoom * 100)}%`;
     }
 
-    async function renderPdfPage() {
-      const fallback = document.getElementById('pdfFallback');
-      const canvas = document.getElementById('pdfCanvas');
-      const info = document.getElementById('pdfPageInfo');
-      if (!state.pdf.doc || !pdfReady()) {
-        canvas.hidden = true;
-        fallback.hidden = false;
-        info.textContent = 'No se pudo mostrar la vista previa del PDF.';
-        return;
-      }
-      try {
-        const page = await state.pdf.doc.getPage(state.pdf.page);
-        const viewport = page.getViewport({ scale: state.pdf.zoom });
-        const context = canvas.getContext('2d');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.hidden = false;
-        fallback.hidden = true;
-        await page.render({ canvasContext: context, viewport }).promise;
-        info.textContent = `Pagina ${state.pdf.page} de ${state.pdf.pages} · Zoom ${Math.round(state.pdf.zoom * 100)}%`;
-      } catch (error) {
-        canvas.hidden = true;
-        fallback.hidden = false;
-        info.textContent = 'No se pudo mostrar la vista previa del PDF.';
-      }
-    }
-
-    async function readPdfText(pdfDoc) {
-      const chunks = [];
-      for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
-        const page = await pdfDoc.getPage(pageNumber);
-        const content = await page.getTextContent();
-        chunks.push(content.items.map((item) => item.str).join(' '));
-      }
-      return chunks.join('\n');
-    }
-
-    function rowsFromPdfText(text) {
-      return String(text || '')
-        .split(/\n|(?=Jefes|Responsables|Camareros|Ayudantes|Leyenda)/i)
-        .map((line) => line.trim().split(/\s{2,}|\t|:/).map((cell) => cell.trim()).filter(Boolean))
-        .filter((row) => row.length);
-    }
-
-    async function loadWhatsappPdf(file) {
-      state.pdf.file = file;
-      state.importedPdf = false;
-      state.savedFiles.previous = fileLabel(file);
+    function loadReferencePhoto(file) {
+      if (!file) return;
+      if (state.photo.url) URL.revokeObjectURL(state.photo.url);
+      state.photo.file = file;
+      state.photo.url = URL.createObjectURL(file);
+      state.photo.zoom = 1;
+      document.getElementById('workArea').classList.add('work-with-reference');
+      document.getElementById('photoPreviewPanel').hidden = false;
+      renderReferencePhoto();
       updateStatus();
-      document.getElementById('pdfPreviewPanel').hidden = false;
-      document.getElementById('pdfPreviewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      if (!pdfReady()) {
-        appendLog('No se pudo mostrar la vista previa del PDF.');
-        document.getElementById('pdfFallback').hidden = false;
-        return;
-      }
-      try {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-        const buffer = await file.arrayBuffer();
-        state.pdf.doc = await pdfjsLib.getDocument({ data: buffer }).promise;
-        state.pdf.pages = state.pdf.doc.numPages;
-        state.pdf.page = 1;
-        state.pdf.zoom = 1;
-        state.pdf.text = await readPdfText(state.pdf.doc);
-        appendLog(`PDF WhatsApp cargado: ${fileLabel(file)}. Revisa la vista previa y confirma importacion.`);
-        await renderPdfPage();
-      } catch (error) {
-        appendLog('No se pudo mostrar la vista previa del PDF.');
-        document.getElementById('pdfFallback').hidden = false;
-      }
-    }
-
-    function confirmPdfImport() {
-      if (!state.pdf.text) {
-        appendLog('No hay texto del PDF para importar.');
-        return;
-      }
-      applyScheduleFromText(state.pdf.text, 'el PDF WhatsApp');
-      state.weeklyHelpers = parseWeeklyHelpers(rowsFromPdfText(state.pdf.text));
-      state.importedPdf = true;
-      updateStatus();
-      appendLog(state.weeklyHelpers.length ? `PDF importado: ${state.weeklyHelpers.length} ayudantes detectados.` : 'PDF importado. Revisa manualmente si no se detectaron ayudantes.');
+      appendLog(`Foto del cuadrante cargada para comparar: ${fileLabel(file)}.`);
+      document.getElementById('workArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
       saveDraft();
     }
 
@@ -1368,56 +1383,51 @@ function showApp() {
       });
     }
 
-    bindFile('weeklyExcel', 'weekly', 'Excel general');
+    bindFile('weeklyExcel', 'weekly', 'Cuadrante semanal');
     bindFile('previousFile', 'previous', 'Cuadrante anterior');
 
     document.getElementById('clearBoardBtn').addEventListener('click', clearGeneralBoard);
-    document.getElementById('uploadWhatsappPdfBtn').addEventListener('click', () => {
-      document.getElementById('whatsappPdfInput').click();
+    document.getElementById('uploadReferencePhotoBtn').addEventListener('click', () => {
+      document.getElementById('referencePhotoInput').click();
     });
-    document.getElementById('whatsappPdfInput').addEventListener('change', async (event) => {
+    document.getElementById('referencePhotoInput').addEventListener('change', (event) => {
       const file = event.target.files[0];
-      if (file) await loadWhatsappPdf(file);
+      if (file) loadReferencePhoto(file);
     });
-    document.getElementById('pdfPrevBtn').addEventListener('click', async () => {
-      if (!state.pdf.doc || state.pdf.page <= 1) return;
-      state.pdf.page -= 1;
-      await renderPdfPage();
+    document.getElementById('photoZoomInBtn').addEventListener('click', () => {
+      state.photo.zoom = Math.min(2.5, state.photo.zoom + 0.15);
+      renderReferencePhoto();
     });
-    document.getElementById('pdfNextBtn').addEventListener('click', async () => {
-      if (!state.pdf.doc || state.pdf.page >= state.pdf.pages) return;
-      state.pdf.page += 1;
-      await renderPdfPage();
+    document.getElementById('photoZoomOutBtn').addEventListener('click', () => {
+      state.photo.zoom = Math.max(0.35, state.photo.zoom - 0.15);
+      renderReferencePhoto();
     });
-    document.getElementById('pdfZoomInBtn').addEventListener('click', async () => {
-      state.pdf.zoom = Math.min(2.5, state.pdf.zoom + 0.15);
-      await renderPdfPage();
+    document.getElementById('closePhotoPreviewBtn').addEventListener('click', () => {
+      document.getElementById('photoPreviewPanel').hidden = true;
+      document.getElementById('workArea').classList.remove('work-with-reference');
+      appendLog('Foto de referencia cerrada.');
     });
-    document.getElementById('pdfZoomOutBtn').addEventListener('click', async () => {
-      state.pdf.zoom = Math.max(0.5, state.pdf.zoom - 0.15);
-      await renderPdfPage();
-    });
-    document.getElementById('closePdfPreviewBtn').addEventListener('click', () => {
-      document.getElementById('pdfPreviewPanel').hidden = true;
-      appendLog('Vista previa del PDF cerrada.');
-    });
-    document.getElementById('confirmPdfImportBtn').addEventListener('click', confirmPdfImport);
 
-    document.getElementById('serviceDate').addEventListener('change', syncWeekFromDate);
+    document.getElementById('serviceDate').addEventListener('change', (event) => {
+      setSelectedServiceDate(event.target.value, true);
+    });
     document.getElementById('weekName').addEventListener('change', (event) => {
-      if (syncDateFromWeek(event.target.value)) {
-        appendLog(`${event.target.value}: fecha ajustada al lunes de la semana. Cambia el dia si necesitas otro.`);
+      if (syncDateFromWeek(event.target.value, { preserveDay: true })) {
+        appendLog(`${event.target.value}: semana ajustada. El dia elegido se mantiene si pertenece a esa semana.`);
       }
       saveDraft();
     });
     document.getElementById('weekName').addEventListener('input', (event) => {
-      if (syncDateFromWeek(event.target.value)) saveDraft();
-    });
-    document.getElementById('serviceDate').addEventListener('input', () => {
-      syncWeekFromDate();
       saveDraft();
     });
-    document.getElementById('serviceDate').addEventListener('change', saveDraft);
+    document.getElementById('serviceDate').addEventListener('input', () => {
+      setSelectedServiceDate(document.getElementById('serviceDate').value, false);
+    });
+    document.getElementById('weekDayPicker').addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-date]');
+      if (!button) return;
+      setSelectedServiceDate(button.dataset.date, true);
+    });
     document.getElementById('mediterraneo').addEventListener('change', saveDraft);
     document.getElementById('notes').addEventListener('input', saveDraft);
 
@@ -1452,7 +1462,7 @@ function showApp() {
     }
 
     function helpersForService(dayIndex, service, usedHelpers = new Set()) {
-      const hasLoadedSchedule = Boolean(state.files.weekly || state.savedFiles.weekly || state.importedPdf);
+      const hasLoadedSchedule = Boolean(state.files.weekly || state.savedFiles.weekly);
       if (!state.weeklyHelpers.length) {
         return hasLoadedSchedule ? [] : fallbackHelpers().filter((helper) => !usedHelpers.has(normalizePerson(helper)));
       }
@@ -1500,7 +1510,7 @@ function showApp() {
     function silverSelect(day, service, helpers, selected) {
       const options = ['', ...helpers].map((helper) => {
         const isSelected = helper === selected ? ' selected' : '';
-        return `<option value="${escapeAttr(helper)}"${isSelected}>${helper || 'Pendiente'}</option>`;
+        return `<option value="${escapeAttr(helper)}"${isSelected}>${helper || 'Completar'}</option>`;
       }).join('');
       return `<select class="silver-input" data-day="${day}" data-service="${service}" aria-label="${day} ${service}">${options}</select>`;
     }
@@ -1546,11 +1556,42 @@ function showApp() {
       return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
 
+    function silverForSelectedDay() {
+      const label = weekDayLabels()[currentDayIndex()];
+      const result = {};
+      document.querySelectorAll(`.silver-input[data-day="${label}"]`).forEach((input) => {
+        result[input.dataset.service] = input.value || '';
+      });
+      return result;
+    }
+
     function renderBoard(sample) {
       const week = document.getElementById('weekName').value || 'Semana';
       const dateText = dayName(document.getElementById('serviceDate').value);
       const med = document.getElementById('mediterraneo').value;
-      const medText = med === 'closed' || (med === 'auto' && dateText.toLowerCase().includes('jueves')) ? 'Cerrado' : 'Pendiente';
+      const medText = med === 'closed' || (med === 'auto' && dateText.toLowerCase().includes('jueves')) ? 'Cerrado' : 'Completar';
+      const empty = 'Completar';
+      const dayIndex = currentDayIndex();
+      const usedHelpers = new Set();
+      const helper = (service, offset) => pickHelper(dayIndex, service, usedHelpers, offset) || empty;
+      const silver = silverForSelectedDay();
+      const silverBreakfast = silver.desayuno || helper('desayuno', 10);
+      const silverLunch = silver.almuerzo || helper('almuerzo', 11);
+      const silverDinner = silver.cena || helper('cena', 12);
+      [silverBreakfast, silverLunch, silverDinner].forEach((name) => {
+        const normalized = normalizePerson(name);
+        if (normalized && normalized !== normalizePerson(empty)) usedHelpers.add(normalized);
+      });
+      const breakfast1 = helper('desayuno', 0);
+      const breakfast2 = helper('desayuno', 1);
+      const breakfast3 = helper('desayuno', 2);
+      const breakfast4 = helper('desayuno', 3);
+      const lunch1 = helper('almuerzo', 4);
+      const lunch3 = helper('almuerzo', 5);
+      const dinner1 = helper('cena', 6);
+      const dinner2 = helper('cena', 7);
+      const dinner3 = helper('cena', 8);
+      const dinner4 = helper('cena', 9);
 
       board.innerHTML = `
         <div class="board-title">
@@ -1560,70 +1601,70 @@ function showApp() {
         <div class="services">
           <article class="service">
             <h4>Desayuno</h4>
-            ${range('1', 'Rango 1', sample ? 'Atteneri' : 'Pendiente', sample ? 'Yusi' : 'Pendiente')}
-            ${range('2', 'Rango 2', sample ? 'Vero M2' : 'Pendiente', sample ? 'Loa' : 'Pendiente')}
-            ${range('3', 'Rango 3', sample ? 'Chamo M2' : 'Pendiente', sample ? 'Roman' : 'Pendiente')}
-            ${range('4', 'Rango 4', sample ? 'Mateo M7' : 'Pendiente', 'Pendiente')}
-            ${range('T', 'Terraza', sample ? 'Lidia' : 'Pendiente', '')}
+            ${range('1', 'Rango 1', empty, breakfast1)}
+            ${range('2', 'Rango 2', empty, breakfast2)}
+            ${range('3', 'Rango 3', empty, breakfast3)}
+            ${range('4', 'Rango 4', empty, breakfast4)}
+            ${range('T', 'Terraza', empty, '')}
             <div class="notes">
-              ${note('Cafeteras', sample ? 'Yessi M7R' : 'Pendiente')}
-              ${note('Plateria desayuno', sample ? 'Jenny M2' : 'Pendiente')}
+              ${note('Cafeteras', empty)}
+              ${note('Plateria desayuno', silverBreakfast)}
             </div>
           </article>
           <article class="service">
             <h4>Almuerzo</h4>
-            ${range('1', 'Rango 1', sample ? 'Chamo M2' : 'Pendiente', sample ? 'J. Carlos M2' : 'Pendiente')}
-            ${range('3', 'Rango 3', sample ? 'Mateo M7 -> Fernando C' : 'Pendiente', sample ? 'Barco T' : 'Pendiente')}
-            ${range('T', 'Terraza', sample ? 'Vero M2' : 'Pendiente', '')}
+            ${range('1', 'Rango 1', empty, lunch1)}
+            ${range('3', 'Rango 3', empty, lunch3)}
+            ${range('T', 'Terraza', empty, '')}
             <div class="notes">
-              ${note('Plateria almuerzo', sample ? 'Yaiza G. C' : 'Pendiente')}
-              ${note('Atenciones', sample ? 'Yessi' : 'Pendiente')}
+              ${note('Plateria almuerzo', silverLunch)}
+              ${note('Atenciones', empty)}
             </div>
           </article>
           <article class="service">
             <h4>Cena</h4>
-            ${range('1', 'Rango 1', sample ? 'Atteneri' : 'Pendiente', sample ? 'Yusi / Yaiza G. C' : 'Pendiente')}
-            ${range('2', 'Rango 2', sample ? 'Marina C' : 'Pendiente', sample ? 'Barco T' : 'Pendiente')}
-            ${range('3', 'Rango 3', sample ? 'Alvarez' : 'Pendiente', sample ? 'Fernando C' : 'Pendiente')}
-            ${state.ranges === 4 ? range('4', 'Rango 4', 'Pendiente', 'Pendiente') : ''}
-            ${range('T', 'Terraza', sample ? 'Lidia' : 'Pendiente', '')}
+            ${range('1', 'Rango 1', empty, dinner1)}
+            ${range('2', 'Rango 2', empty, dinner2)}
+            ${range('3', 'Rango 3', empty, dinner3)}
+            ${state.ranges === 4 ? range('4', 'Rango 4', empty, dinner4) : ''}
+            ${range('T', 'Terraza', empty, '')}
             ${range('M', 'Mediterraneo', medText, '')}
             <div class="notes">
-              ${note('Caja', sample ? 'Loa' : 'Pendiente')}
-              ${note('Plateria-recogida de pisos 18h', sample ? 'Roman' : 'Pendiente')}
+              ${note('Caja', empty)}
+              ${note('Plateria-recogida de pisos 18h', silverDinner)}
             </div>
           </article>
         </div>
         <div class="tasks-preview">
           <article class="task-card">
             <h4>Desayuno - tareas de cierre</h4>
-            ${task('desayuno', 'Cont/Ropa / Sal / Pl. cafe / M. Zumos', sample ? 'Roman' : 'Pendiente')}
-            ${task('desayuno', 'Tazas / lavar y sacar esterillas', 'Pendiente')}
-            ${task('desayuno', 'Repartir material', sample ? 'Atteneri' : 'Pendiente')}
-            ${task('desayuno', 'Microondas / teteras', sample ? 'Lidia' : 'Pendiente')}
-            ${task('desayuno', 'Azucar rangos', sample ? 'Chamo M2' : 'Pendiente')}
-            ${task('desayuno', 'Cuberterio', sample ? 'Loa' : 'Pendiente')}
-            ${task('desayuno', 'Tronas, basura, cascos, roturas, limpieza bodega', sample ? 'J. Carlos M2' : 'Pendiente')}
-            ${task('desayuno', 'Cargar neveras', sample ? 'Mateo M7' : 'Pendiente')}
-            ${task('desayuno', 'Baginbox - cerveza', sample ? 'Vero M2' : 'Pendiente')}
+            ${task('desayuno', 'Cont/Ropa / Sal / Pl. cafe / M. Zumos', empty)}
+            ${task('desayuno', 'Tazas / lavar y sacar esterillas', empty)}
+            ${task('desayuno', 'Repartir material', empty)}
+            ${task('desayuno', 'Microondas / teteras', empty)}
+            ${task('desayuno', 'Azucar rangos', empty)}
+            ${task('desayuno', 'Cuberterio', empty)}
+            ${task('desayuno', 'Tronas, basura, cascos, roturas, limpieza bodega', empty)}
+            ${task('desayuno', 'Cargar neveras', empty)}
+            ${task('desayuno', 'Baginbox - cerveza', empty)}
           </article>
           <article class="task-card">
             <h4>Almuerzo - tareas de cierre</h4>
             ${task('almuerzo', 'Basuras', '')}
-            ${task('almuerzo', 'Revisar bodega - baginbox 3/4', sample ? 'Barco 1' : 'Pendiente')}
-            ${task('almuerzo', 'Copas', sample ? 'Marina / Alvarez' : 'Pendiente')}
-            ${task('almuerzo', 'Cubiertos', sample ? 'Jenny 1' : 'Pendiente')}
-            ${task('almuerzo', 'Saleros y pimenteros', sample ? 'Jenny 2' : 'Pendiente')}
-            ${task('almuerzo', 'Salsas / sillas de ninos', sample ? 'Barco 2' : 'Pendiente')}
-            ${task('almuerzo', 'Rellenado de aparadores', sample ? 'Fernando' : 'Pendiente')}
-            ${task('almuerzo', 'Repartir cartas / repartir material', sample ? 'Fernando' : 'Pendiente')}
-            ${task('almuerzo', 'Limpieza de grifos', sample ? 'Jenny 3' : 'Pendiente')}
+            ${task('almuerzo', 'Revisar bodega - baginbox 3/4', empty)}
+            ${task('almuerzo', 'Copas', empty)}
+            ${task('almuerzo', 'Cubiertos', empty)}
+            ${task('almuerzo', 'Saleros y pimenteros', empty)}
+            ${task('almuerzo', 'Salsas / sillas de ninos', empty)}
+            ${task('almuerzo', 'Rellenado de aparadores', empty)}
+            ${task('almuerzo', 'Repartir cartas / repartir material', empty)}
+            ${task('almuerzo', 'Limpieza de grifos', empty)}
           </article>
           <article class="task-card">
             <h4>Cena - tareas de cierre</h4>
-            ${task('cena', 'Sillas de ninos', sample ? 'Cada rango' : 'Pendiente')}
-            ${task('cena', 'Decoracion + reponer vinos', sample ? 'Loa' : 'Pendiente')}
-            ${task('cena', 'Ayuda pisos', sample ? 'Barco T' : 'Pendiente')}
+            ${task('cena', 'Sillas de ninos', 'Cada rango')}
+            ${task('cena', 'Decoracion + reponer vinos', empty)}
+            ${task('cena', 'Ayuda pisos', empty)}
           </article>
         </div>
       `;
@@ -1782,7 +1823,7 @@ function showApp() {
         .split(/\/|,| y /i)
         .map(normalizePerson)
         .filter(Boolean)
-        .filter((name) => !['pendiente', 'cada rango'].includes(name));
+        .filter((name) => !['pendiente', 'completar', 'cada rango'].includes(name));
     }
 
     function getPlateriaByService() {
@@ -1848,7 +1889,7 @@ function showApp() {
     function reviewPrintWarnings() {
       updateStatus();
       const missing = [];
-      if (!state.files.weekly && !state.savedFiles.weekly && !state.importedPdf) missing.push('Excel general o PDF WhatsApp');
+      if (!state.files.weekly && !state.savedFiles.weekly) missing.push('Cuadrante semanal');
       if (!state.silverCreated) missing.push('Plateria desde ayudantes');
       if (missing.length) {
         appendLog(`Revision: falta ${missing.join(' y ')}.`);
@@ -2005,15 +2046,6 @@ function showApp() {
       }
     }
 
-    document.getElementById('loadSample').addEventListener('click', () => {
-      document.getElementById('notes').value = 'Ejemplo cargado: mantener rango desayuno/cena, plateria bloquea tareas, cena con 3 rangos.';
-      renderBoard(true);
-      bindTaskEditors();
-      appendLog('Ejemplo cargado con estructura de Semana 25.');
-      board.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      saveDraft();
-    });
-
     document.getElementById('reviewBtn').addEventListener('click', reviewPrintWarnings);
 
     document.getElementById('generateBtn').addEventListener('click', () => {
@@ -2094,10 +2126,15 @@ function showApp() {
       document.getElementById('toggleLogBtn').textContent = panel.hidden ? 'Ver registro' : 'Ocultar registro';
     });
 
-    document.getElementById('logoutBtn').addEventListener('click', () => {
-      showLogin();
+    document.getElementById('clearLogBtn').addEventListener('click', () => {
+      log.textContent = 'Registro limpio.';
+      actionFeedback.textContent = 'Registro limpio.';
+      actionFeedback.classList.remove('warn');
+      saveDraft();
     });
+
     restoreDraft();
+    renderWeekDayPicker();
     showApp();
   </script>
 </body>
