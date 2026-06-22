@@ -831,10 +831,10 @@
               <div class="print-actions">
                 <button class="btn" id="reviewBtn">Revisar avisos</button>
                 <button class="btn" id="adminBtn">Responsable</button>
-                <button class="btn" id="previewPdfBtn">Ver PDF</button>
-                <button class="btn" id="downloadPdfBtn">Descargar PDF</button>
+                <button class="btn" id="previewPdfBtn">Ver cuadrante</button>
+                <button class="btn" id="downloadPdfBtn">Descargar cuadrante</button>
                 <button class="btn" id="printBtn">Imprimir</button>
-                <button class="btn" id="downloadPngBtn">Descargar PNG</button>
+                <button class="btn" id="downloadPngBtn">Descargar imagen</button>
               </div>
               <div class="print-option">
                 <strong>Salida final</strong>
@@ -1444,7 +1444,7 @@ function showApp() {
 
     function isAvailableForService(shift, service) {
       const value = normalizeShift(shift);
-      if (!value || ['L', 'V', 'ILT', 'HS', 'P.R', 'PR'].includes(value)) return false;
+      if (!value || ['L', 'V', 'VACACIONES', 'ILT', 'BAJA', 'HS', 'P.R', 'PR', 'PERMISO', 'C.S.S', 'CSS'].includes(value)) return false;
       if (service === 'desayuno') return /^(M|M7|M7R|M8|M8R|M2|DC|DC2|DC7|DC\+)$/.test(value);
       if (service === 'almuerzo') return /^(M2|M7|M7R|C|T|DC|DC2|DC7|DC\+)$/.test(value);
       if (service === 'cena') return /^(C|T|T2|DC|DC2|DC7|DC\+)$/.test(value);
@@ -1452,12 +1452,15 @@ function showApp() {
     }
 
     function helpersForService(dayIndex, service, usedHelpers = new Set()) {
-      if (!state.weeklyHelpers.length) return fallbackHelpers().filter((helper) => !usedHelpers.has(normalizePerson(helper)));
+      const hasLoadedSchedule = Boolean(state.files.weekly || state.savedFiles.weekly || state.importedPdf);
+      if (!state.weeklyHelpers.length) {
+        return hasLoadedSchedule ? [] : fallbackHelpers().filter((helper) => !usedHelpers.has(normalizePerson(helper)));
+      }
       const available = state.weeklyHelpers
         .filter((helper) => isAvailableForService(helper.shifts[dayIndex], service))
         .map((helper) => helper.name)
         .filter((name) => !usedHelpers.has(normalizePerson(name)));
-      return available.length ? available : fallbackHelpers().filter((helper) => !usedHelpers.has(normalizePerson(helper)));
+      return available;
     }
 
     function pickHelper(dayIndex, service, usedHelpers, offset) {
@@ -1560,7 +1563,7 @@ function showApp() {
             ${range('1', 'Rango 1', sample ? 'Atteneri' : 'Pendiente', sample ? 'Yusi' : 'Pendiente')}
             ${range('2', 'Rango 2', sample ? 'Vero M2' : 'Pendiente', sample ? 'Loa' : 'Pendiente')}
             ${range('3', 'Rango 3', sample ? 'Chamo M2' : 'Pendiente', sample ? 'Roman' : 'Pendiente')}
-            ${range('4', 'Rango 4', sample ? 'Mateo M7' : 'Pendiente', sample ? 'Ernes' : 'Pendiente')}
+            ${range('4', 'Rango 4', sample ? 'Mateo M7' : 'Pendiente', 'Pendiente')}
             ${range('T', 'Terraza', sample ? 'Lidia' : 'Pendiente', '')}
             <div class="notes">
               ${note('Cafeteras', sample ? 'Yessi M7R' : 'Pendiente')}
@@ -1581,7 +1584,7 @@ function showApp() {
             <h4>Cena</h4>
             ${range('1', 'Rango 1', sample ? 'Atteneri' : 'Pendiente', sample ? 'Yusi / Yaiza G. C' : 'Pendiente')}
             ${range('2', 'Rango 2', sample ? 'Marina C' : 'Pendiente', sample ? 'Barco T' : 'Pendiente')}
-            ${range('3', 'Rango 3', sample ? 'Alvarez' : 'Pendiente', sample ? 'Ernes / Fernando C' : 'Pendiente')}
+            ${range('3', 'Rango 3', sample ? 'Alvarez' : 'Pendiente', sample ? 'Fernando C' : 'Pendiente')}
             ${state.ranges === 4 ? range('4', 'Rango 4', 'Pendiente', 'Pendiente') : ''}
             ${range('T', 'Terraza', sample ? 'Lidia' : 'Pendiente', '')}
             ${range('M', 'Mediterraneo', medText, '')}
@@ -1595,7 +1598,7 @@ function showApp() {
           <article class="task-card">
             <h4>Desayuno - tareas de cierre</h4>
             ${task('desayuno', 'Cont/Ropa / Sal / Pl. cafe / M. Zumos', sample ? 'Roman' : 'Pendiente')}
-            ${task('desayuno', 'Tazas / lavar y sacar esterillas', sample ? 'Ernes' : 'Pendiente')}
+            ${task('desayuno', 'Tazas / lavar y sacar esterillas', 'Pendiente')}
             ${task('desayuno', 'Repartir material', sample ? 'Atteneri' : 'Pendiente')}
             ${task('desayuno', 'Microondas / teteras', sample ? 'Lidia' : 'Pendiente')}
             ${task('desayuno', 'Azucar rangos', sample ? 'Chamo M2' : 'Pendiente')}
@@ -1725,9 +1728,18 @@ function showApp() {
     function duplicateBoardPeople() {
       const seen = new Map();
       const duplicates = [];
-      assignedPeopleFromBoard().forEach((name) => {
-        if (seen.has(name)) duplicates.push(`${name} esta repetido en el cuadrante.`);
-        seen.set(name, true);
+      board.querySelectorAll('.service').forEach((serviceEl) => {
+        const serviceName = serviceEl.querySelector('h4')?.textContent.trim() || 'servicio';
+        serviceEl.querySelectorAll('.range strong').forEach((item) => {
+          splitPeople(item.textContent).forEach((name) => {
+            const key = `${serviceName}|${name}`;
+            if (seen.has(key)) {
+              duplicates.push(`${name} esta repetido en rangos de ${serviceName}.`);
+            } else {
+              seen.set(key, true);
+            }
+          });
+        });
       });
       return duplicates;
     }
@@ -1867,6 +1879,132 @@ function showApp() {
       window.print();
     }
 
+    function hasGeneratedBoard() {
+      return Boolean(board.querySelector('.range, .note, .task-row'));
+    }
+
+    function boardFileName(extension) {
+      const week = (document.getElementById('weekName').value || 'semana').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const date = document.getElementById('serviceDate').value || new Date().toISOString().slice(0, 10);
+      return `chamasesor-${week || 'semana'}-${date}.${extension}`;
+    }
+
+    function boardPrintHtml() {
+      snapshotEditableValues();
+      const styles = Array.from(document.querySelectorAll('style')).map((style) => style.textContent).join('\n');
+      const notes = document.getElementById('notes').value.trim();
+      return `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeAttr(document.getElementById('weekName').value || 'ChamAsesor')}</title>
+  <style>
+    ${styles}
+    body { background: #fff; padding: 14px; }
+    .board { max-width: 1180px; margin: 0 auto; }
+    .task-input { border: 0; background: transparent; color: inherit; width: 100%; }
+    .export-note { max-width: 1180px; margin: 10px auto 0; font-size: 12px; color: #475569; }
+    @media print {
+      body { padding: 0; }
+      .board { border: 0; }
+      .export-note { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="board">${board.innerHTML}</div>
+  ${notes ? `<div class="export-note"><strong>Observaciones:</strong> ${escapeAttr(notes)}</div>` : ''}
+</body>
+</html>`;
+    }
+
+    function downloadTextFile(filename, content, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function openBoardPreview() {
+      if (!hasGeneratedBoard()) {
+        appendLog('Primero genera un cuadrante para poder verlo.');
+        return;
+      }
+      const preview = window.open('', '_blank');
+      if (!preview) {
+        appendLog('No se pudo abrir la vista del cuadrante. Revisa si el navegador bloqueo la ventana.');
+        return;
+      }
+      preview.document.open();
+      preview.document.write(boardPrintHtml());
+      preview.document.close();
+      appendLog('Cuadrante abierto en una vista limpia.');
+    }
+
+    function downloadBoardHtml() {
+      if (!hasGeneratedBoard()) {
+        appendLog('Primero genera un cuadrante para poder descargarlo.');
+        return;
+      }
+      downloadTextFile(boardFileName('html'), boardPrintHtml(), 'text/html;charset=utf-8');
+      appendLog('Cuadrante descargado en archivo HTML. Para PDF usa Imprimir y guardar como PDF.');
+    }
+
+    async function downloadBoardImage() {
+      if (!hasGeneratedBoard()) {
+        appendLog('Primero genera un cuadrante para poder descargar la imagen.');
+        return;
+      }
+      try {
+        snapshotEditableValues();
+        const clone = board.cloneNode(true);
+        clone.querySelectorAll('.task-input').forEach((input) => {
+          const span = document.createElement('span');
+          span.textContent = input.value || input.getAttribute('value') || '';
+          input.replaceWith(span);
+        });
+        const width = Math.max(900, board.scrollWidth);
+        const height = Math.max(600, board.scrollHeight);
+        const styles = Array.from(document.querySelectorAll('style')).map((style) => style.textContent).join('\n');
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+          <foreignObject width="100%" height="100%">
+            <div xmlns="http://www.w3.org/1999/xhtml">
+              <style>${styles} body { margin: 0; background: #fff; } .board { width: ${width - 4}px; }</style>
+              ${clone.outerHTML}
+            </div>
+          </foreignObject>
+        </svg>`;
+        const img = new Image();
+        const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = svgUrl;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        URL.revokeObjectURL(svgUrl);
+        const pngUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = pngUrl;
+        link.download = boardFileName('png');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        appendLog('Imagen del cuadrante descargada.');
+      } catch (error) {
+        appendLog('No se pudo descargar la imagen. Usa Ver cuadrante o Imprimir.');
+      }
+    }
+
     document.getElementById('loadSample').addEventListener('click', () => {
       document.getElementById('notes').value = 'Ejemplo cargado: mantener rango desayuno/cena, plateria bloquea tareas, cena con 3 rangos.';
       renderBoard(true);
@@ -1879,9 +2017,9 @@ function showApp() {
     document.getElementById('reviewBtn').addEventListener('click', reviewPrintWarnings);
 
     document.getElementById('generateBtn').addEventListener('click', () => {
-      renderBoard(Boolean(state.files.weekly || state.savedFiles.weekly || state.silverCreated));
+      renderBoard(false);
       bindTaskEditors();
-      appendLog('Cuadrante generado en vista previa. Revisa rangos, plateria y tareas antes de imprimir.');
+      appendLog('Cuadrante general preparado sin nombres de ejemplo. Completa los rangos con la semana cargada y revisa antes de imprimir.');
       board.scrollIntoView({ behavior: 'smooth', block: 'start' });
       saveDraft();
     });
@@ -1942,17 +2080,11 @@ function showApp() {
       saveDraft();
     });
 
-    document.getElementById('previewPdfBtn').addEventListener('click', () => {
-      appendLog('Ver PDF: pendiente de conectar al generador final.');
-    });
+    document.getElementById('previewPdfBtn').addEventListener('click', openBoardPreview);
 
-    document.getElementById('downloadPdfBtn').addEventListener('click', () => {
-      appendLog('Descargar PDF: pendiente de conectar al generador final.');
-    });
+    document.getElementById('downloadPdfBtn').addEventListener('click', downloadBoardHtml);
 
-    document.getElementById('downloadPngBtn').addEventListener('click', () => {
-      appendLog('Descargar PNG: pendiente de conectar al generador final.');
-    });
+    document.getElementById('downloadPngBtn').addEventListener('click', downloadBoardImage);
 
     document.getElementById('printBtn').addEventListener('click', printWithWarnings);
 
