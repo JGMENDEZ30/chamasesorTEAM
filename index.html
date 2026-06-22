@@ -1027,9 +1027,29 @@ function showApp() {
       return null;
     }
 
+    function weeklyPeopleCount() {
+      return (state.weeklyPeople.responsables?.length || 0)
+        + (state.weeklyPeople.camareros?.length || 0)
+        + (state.weeklyPeople.ayudantes?.length || 0);
+    }
+
+    function hasWeeklyPeople() {
+      return weeklyPeopleCount() > 0;
+    }
+
+    function weeklyStatus() {
+      if (hasWeeklyPeople()) {
+        return pill(`${weeklyPeopleCount()} nombres`, 'ok');
+      }
+      if (state.files.weekly || state.savedFiles.weekly) {
+        return pill('Cargar otra vez', 'danger');
+      }
+      return pill('Sin cargar', 'warn');
+    }
+
     function updateStatus() {
       statusList.innerHTML = `
-        <div class="status-row"><span>Cuadrante semanal</span>${fileStatus('weekly') || pill('Sin cargar', 'warn')}</div>
+        <div class="status-row"><span>Cuadrante semanal</span>${weeklyStatus()}</div>
         <div class="status-row"><span>Plateria desde ayudantes</span>${state.silverCreated ? pill('Creada', 'ok') : pill('Sin crear', 'warn')}</div>
         <div class="status-row"><span>Cuadrante anterior</span>${fileStatus('previous') || pill('Opcional', 'warn')}</div>
         <div class="status-row"><span>Foto referencia</span>${state.photo.file ? pill('Cargada', 'ok') : pill('Opcional', 'warn')}</div>
@@ -1125,6 +1145,9 @@ function showApp() {
       applyRangeButtons();
       renderWeekDayPicker();
       updateStatus();
+      if (state.savedFiles.weekly && !hasWeeklyPeople()) {
+        appendLog('El navegador recordaba un Excel anterior, pero no tiene nombres leidos. Carga otra vez el Cuadrante semanal (Excel).');
+      }
       appendLog('Borrador recuperado automaticamente.');
     }
 
@@ -1278,6 +1301,56 @@ function showApp() {
       return String(value || '').trim().toUpperCase().replace(/\s+/g, '');
     }
 
+    function preferredName(value) {
+      const raw = String(value || '').replace(/:$/, '').trim();
+      const key = normalizePerson(raw);
+      const names = {
+        alvarez: 'Alvarez',
+        atteneri: 'Atteneri',
+        barco: 'Barco',
+        blanca: 'Blanca',
+        blanco: 'Blanco',
+        carlos: 'Carlos G.',
+        'carlos g': 'Carlos G.',
+        'carlos g.': 'Carlos G.',
+        chamo: 'Chamo',
+        emelina: 'Emelina',
+        ernes: 'Ernes',
+        ernesto: 'Ernes',
+        fernan: 'Fernando',
+        fernd: 'Fernando',
+        fernando: 'Fernando',
+        formo: 'Formo',
+        gedy: 'Gedi',
+        gedi: 'Gedi',
+        jenny: 'Jenny',
+        'j carlos': 'J. Carlos',
+        'j. carlos': 'J. Carlos',
+        juan: 'Juan Pedro',
+        'juan pedro': 'Juan Pedro',
+        lidia: 'Lidia',
+        loa: 'Loa',
+        lola: 'Lola',
+        lucia: 'Lucia',
+        marina: 'Marina',
+        mateo: 'Mateo',
+        povi: 'Povi',
+        roman: 'Roman',
+        seve: 'Seve',
+        severo: 'Seve',
+        vero: 'Vero',
+        yaiza: 'Yaiza G.',
+        'yaiza g': 'Yaiza G.',
+        'yaiza g.': 'Yaiza G.',
+        'yaiza m': 'Yaiza M.',
+        'yaiza m.': 'Yaiza M.',
+        yessi: 'Yessi',
+        yuriy: 'Yuriy',
+        yusi: 'Yusi'
+      };
+      return names[key] || raw;
+    }
+
     function parseWeeklyPeople(rows) {
       const people = {
         responsables: [],
@@ -1316,11 +1389,26 @@ function showApp() {
           return;
         }
         if (!section || cells.length < 4) return;
-        const name = cells[0].replace(/:$/, '').trim();
+        const name = preferredName(cells[0]);
         const shifts = cells.slice(1, 8).map(normalizeShift);
         if (!name || shifts.length < 3) return;
         if (shifts.some(Boolean) && people[section]) people[section].push({ name, shifts });
       });
+      if (!people.responsables.length && !people.camareros.length && !people.ayudantes.length) {
+        const inferred = rows
+          .map((row) => row.map((cell) => String(cell || '').trim()).filter(Boolean))
+          .filter((cells) => cells.length >= 4)
+          .map((cells) => {
+            const name = preferredName(cells[0]);
+            const shifts = cells.slice(1, 8).map(normalizeShift);
+            const validShifts = shifts.filter((shift) => /^(M|M7|M7R|M8|M8R|M2|T|T2|C|DC|DC2|DC7|DC\+|L|V|ILT|HS|P\.R|PR|C\.S\.S|CSS)$/i.test(shift));
+            return { name, shifts, validCount: validShifts.length };
+          })
+          .filter((item) => item.name && item.validCount >= 3);
+        if (inferred.length) {
+          people.camareros = inferred;
+        }
+      }
       return people;
     }
 
@@ -1340,10 +1428,12 @@ function showApp() {
         } else {
           appendLog('Aviso: no encontre los grupos del cuadrante en el Excel. La hoja quedara editable para completar.');
         }
+        updateStatus();
       } catch (error) {
         state.weeklyHelpers = [];
         state.weeklyPeople = { responsables: [], camareros: [], ayudantes: [] };
         appendLog('No se pudo leer el cuadrante semanal del Excel. La hoja queda editable manualmente.');
+        updateStatus();
       }
     }
 
@@ -1616,6 +1706,20 @@ function showApp() {
     }
 
     function renderBoard(sample) {
+      if (!hasWeeklyPeople()) {
+        board.innerHTML = `
+          <div class="board-title">
+            <strong>Cuadrante no generado</strong>
+            <span>Carga otra vez el Cuadrante semanal (Excel) para leer nombres y turnos reales.</span>
+          </div>
+          <div class="empty-state">No hay nombres reales leidos del Excel. La app no genera con datos antiguos para evitar asignaciones incorrectas.</div>
+        `;
+        board.removeAttribute('data-generated-day');
+        appendLog('No se genero el cuadrante: falta cargar otra vez el Cuadrante semanal (Excel) con nombres reales.');
+        updateStatus();
+        saveDraft();
+        return false;
+      }
       const week = document.getElementById('weekName').value || 'Semana';
       const dateText = dayName(document.getElementById('serviceDate').value);
       const med = document.getElementById('mediterraneo').value;
@@ -1734,6 +1838,7 @@ function showApp() {
         </div>
       `;
       board.dataset.generatedDay = document.getElementById('serviceDate').value;
+      return true;
     }
 
     function range(code, title, first, second) {
@@ -1810,9 +1915,14 @@ function showApp() {
 
     function shiftForPerson(name) {
       const normalized = normalizePerson(name);
-      const helper = state.weeklyHelpers.find((item) => normalizePerson(item.name) === normalized);
-      if (!helper) return '';
-      return normalizeShift(helper.shifts[currentDayIndex()]);
+      const allPeople = [
+        ...(state.weeklyPeople.responsables || []),
+        ...(state.weeklyPeople.camareros || []),
+        ...(state.weeklyPeople.ayudantes || [])
+      ];
+      const person = allPeople.find((item) => normalizePerson(item.name) === normalized);
+      if (!person) return '';
+      return normalizeShift(person.shifts[currentDayIndex()]);
     }
 
     function peopleStatusWarnings() {
@@ -2115,9 +2225,12 @@ function showApp() {
     document.getElementById('reviewBtn').addEventListener('click', reviewPrintWarnings);
 
     document.getElementById('generateBtn').addEventListener('click', () => {
-      renderBoard(false);
+      state.editSnapshot = '';
+      state.lastWarnings = [];
+      board.removeAttribute('data-generated-day');
+      const generated = renderBoard(false);
       bindTaskEditors();
-      appendLog('Cuadrante general preparado sin nombres de ejemplo. Completa los rangos con la semana cargada y revisa antes de imprimir.');
+      if (generated) appendLog('Cuadrante generado con los nombres disponibles del Excel. Revisa y ajusta mirando la foto antes de imprimir.');
       board.scrollIntoView({ behavior: 'smooth', block: 'start' });
       saveDraft();
     });
