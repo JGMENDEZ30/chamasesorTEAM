@@ -771,7 +771,7 @@
         <div>
           <h2>ChamAsesor</h2>
           <p class="subtitle">Cuadrantes, turnos y plateria</p>
-          <span class="version-badge">VERSION NUEVA 22/06 - LEE EXCEL REAL - NOMBRES CORTOS</span>
+          <span class="version-badge">VERSION NUEVA 23/06 - LECTURA NOMBRES CORREGIDA</span>
         </div>
         <div class="actions">
           <button class="btn primary" id="generateBtn">Generar cuadrante</button>
@@ -780,7 +780,7 @@
         </div>
       </div>
 
-      <div class="action-feedback" id="actionFeedback">VERSION NUEVA 22/06 cargada. Lee Excel con Nombre Completo y avisa si faltan camareros/ayudantes.</div>
+      <div class="action-feedback" id="actionFeedback">VERSION NUEVA 23/06 cargada. Lee Nombre o Nombre completo y rellena con nombres disponibles.</div>
 
       <div class="grid">
         <section class="panel">
@@ -1013,8 +1013,8 @@ function showApp() {
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
-    const STORAGE_KEY = 'chamasesor-borrador-v4-excel-real';
-    const APP_VERSION = '2026-06-22-1538-excel-real-nombre-completo';
+    const STORAGE_KEY = 'chamasesor-borrador-v8-nombres-corregidos';
+    const APP_VERSION = '2026-06-23-0900-nombres-corregidos';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -1450,21 +1450,23 @@ function showApp() {
         if (/director|jefe|sector|responsable|asistente/.test(value)) return 'responsables';
         return fallback;
       };
-      const tableHeader = rows.findIndex((row) => row.some((cell) => /nombre\s+completo/i.test(String(cell || ''))));
+      const tableHeader = rows.findIndex((row) => row.some((cell) => /^nombre$|nombre\s+completo/i.test(String(cell || '').trim())));
       if (tableHeader >= 0) {
         const header = rows[tableHeader].map((cell) => String(cell || '').trim().toLowerCase());
-        const nameIndex = header.findIndex((cell) => /nombre\s+completo/.test(cell));
+        const nameIndex = header.findIndex((cell) => /^nombre$|nombre\s+completo/.test(cell));
         const roleIndex = header.findIndex((cell) => /cargo|secci/.test(cell));
+        const groupIndex = header.findIndex((cell) => /grupo/.test(cell));
         const dayIndexes = header
           .map((cell, index) => (/lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo/.test(cell) ? index : -1))
           .filter((index) => index >= 0)
           .slice(0, 7);
+        if (nameIndex < 0 || dayIndexes.length < 3) return people;
         rows.slice(tableHeader + 1).forEach((row) => {
           const name = preferredName(row[nameIndex]);
           const shifts = dayIndexes.map((index) => normalizeShift(row[index]));
           const validCount = shifts.filter((shift) => validShiftPattern.test(shift)).length;
           if (!name || validCount < 3) return;
-          const group = groupFromRole(row[roleIndex], 'camareros');
+          const group = groupFromRole(row[roleIndex], groupFromRole(row[groupIndex], 'camareros'));
           people[group].push({ name, shifts });
         });
         return people;
@@ -1719,7 +1721,16 @@ function showApp() {
       const value = normalizeShift(shift);
       if (!value || ['L', 'V', 'VACACIONES', 'ILT', 'BAJA', 'HS', 'P.R', 'PR', 'PERMISO', 'C.S.S', 'CSS'].includes(value)) return false;
       if (service === 'desayuno') return /^(M|M7|M7R|M8|M8R|M2|DC|DC2|DC7|DC\+)$/.test(value);
-      if (service === 'almuerzo') return /^(M2|M7|M7R|C|T|DC|DC2|DC7|DC\+)$/.test(value);
+      if (service === 'almuerzo') return /^(M2|M7|M7R|C|T)$/.test(value);
+      if (service === 'cena') return /^(C|T|T2|DC|DC2|DC7|DC\+)$/.test(value);
+      return false;
+    }
+
+    function isAvailableForTask(shift, service) {
+      const value = normalizeShift(shift);
+      if (!value || ['L', 'V', 'VACACIONES', 'ILT', 'BAJA', 'HS', 'P.R', 'PR', 'PERMISO', 'C.S.S', 'CSS', 'M2'].includes(value)) return false;
+      if (service === 'desayuno') return /^(M|M7|M7R|M8|M8R|DC|DC2|DC7|DC\+)$/.test(value);
+      if (service === 'almuerzo') return /^(M7|M7R|C|T)$/.test(value);
       if (service === 'cena') return /^(C|T|T2|DC|DC2|DC7|DC\+)$/.test(value);
       return false;
     }
@@ -1762,6 +1773,33 @@ function showApp() {
         if (selected) return selected;
       }
       return '';
+    }
+
+    function pickTaskPerson(groups, dayIndex, service, usedPeople, offset) {
+      for (const group of groups) {
+        const people = state.weeklyPeople?.[group] || [];
+        const available = people
+          .filter((person) => isAvailableForTask(person.shifts[dayIndex], service))
+          .map((person) => displayPerson(person.name))
+          .filter((name) => !usedPeople.has(normalizePerson(name)));
+        if (available.length) {
+          const selected = available[(dayIndex + offset) % available.length] || available[0];
+          usedPeople.add(normalizePerson(selected));
+          return selected;
+        }
+      }
+      return '';
+    }
+
+    function reservePeople(targetSet, names) {
+      names.forEach((name) => {
+        splitPeople(name).forEach((person) => targetSet.add(normalizePerson(person)));
+      });
+    }
+
+    function peopleLabel(names) {
+      const clean = names.filter(Boolean).map(displayPerson);
+      return clean.length ? clean.join(' / ') : 'Revisar';
     }
 
     function buildSilverRows() {
@@ -1871,14 +1909,17 @@ function showApp() {
       const week = document.getElementById('weekName').value || 'Semana';
       const dateText = dayName(document.getElementById('serviceDate').value);
       const med = document.getElementById('mediterraneo').value;
-      const medText = med === 'closed' || (med === 'auto' && dateText.toLowerCase().includes('jueves')) ? 'Cerrado' : 'Completar';
-      const empty = 'Completar';
+      const pending = 'Revisar';
+      const medText = med === 'closed' || (med === 'auto' && dateText.toLowerCase().includes('jueves')) ? 'Cerrado' : pending;
+      const empty = pending;
       const dayIndex = currentDayIndex();
       const usedHelpers = new Set();
       const usedCamareros = new Set();
       const usedTasks = new Set();
-      const helper = (service, offset) => pickPersonFromGroups(['ayudantes', 'camareros'], dayIndex, service, usedHelpers, offset) || empty;
-      const cam = (service, offset) => pickPersonFromGroups(['camareros', 'responsables', 'ayudantes'], dayIndex, service, usedCamareros, offset) || empty;
+      const usedResponsables = new Set();
+      const helper = (service, offset) => pickPersonFromGroups(['ayudantes'], dayIndex, service, usedHelpers, offset) || empty;
+      const cam = (service, offset) => pickPersonFromGroups(['camareros'], dayIndex, service, usedCamareros, offset) || empty;
+      const responsable = (service, offset) => pickPersonFromGroups(['responsables'], dayIndex, service, usedResponsables, offset);
       const silver = silverForSelectedDay();
       const silverBreakfast = displayPerson(silver.desayuno) || helper('desayuno', 10);
       const silverLunch = displayPerson(silver.almuerzo) || helper('almuerzo', 11);
@@ -1888,7 +1929,6 @@ function showApp() {
         if (normalized && normalized !== normalizePerson(empty)) usedHelpers.add(normalized);
         if (normalized && normalized !== normalizePerson(empty)) usedTasks.add(normalized);
       });
-      const taskWorker = (service, offset) => pickPersonFromGroups(['ayudantes', 'camareros', 'responsables'], dayIndex, service, usedTasks, offset) || empty;
       const breakfast1 = helper('desayuno', 0);
       const breakfast2 = helper('desayuno', 1);
       const breakfast3 = helper('desayuno', 2);
@@ -1912,11 +1952,31 @@ function showApp() {
       const dinnerCam3 = cam('cena', 10);
       const dinnerCam4 = cam('cena', 11);
       const dinnerTerrace = cam('cena', 12);
+      const breakfastResp1 = responsable('desayuno', 0);
+      const breakfastResp2 = responsable('desayuno', 1);
+      const lunchResp = responsable('almuerzo', 2);
+      const dinnerResp1 = responsable('cena', 3);
+      const dinnerResp2 = responsable('cena', 4);
+      reservePeople(usedTasks, [
+        silverBreakfast, silverLunch, silverDinner,
+        breakfast1, breakfast2, breakfast3, breakfast4,
+        lunch1, lunch3,
+        dinner1, dinner2, dinner3, dinner4,
+        breakfastCam1, breakfastCam2, breakfastCam3, breakfastCam4, breakfastTerrace,
+        lunchCam1, lunchCam3, lunchTerrace,
+        dinnerCam1, dinnerCam2, dinnerCam3, dinnerCam4, dinnerTerrace
+      ]);
+      const taskWorker = (service, offset) => pickTaskPerson(['ayudantes', 'camareros'], dayIndex, service, usedTasks, offset) || pending;
 
       board.innerHTML = `
         <div class="board-title">
           <strong>Cuadrante de servicio - ${dateText}</strong>
               <span>${week}. Vista previa generada por ChamAsesor.</span>
+        </div>
+        <div class="status-grid">
+          <div class="status-row"><span>Responsables desayuno</span>${pill(peopleLabel([breakfastResp1, breakfastResp2]), 'ok')}</div>
+          <div class="status-row"><span>Responsable almuerzo</span>${pill(peopleLabel([lunchResp]), 'ok')}</div>
+          <div class="status-row"><span>Responsables cena</span>${pill(peopleLabel([dinnerResp1, dinnerResp2]), 'ok')}</div>
         </div>
         <div class="services">
           <article class="service">
@@ -2152,7 +2212,7 @@ function showApp() {
         .split(/\/|,| y /i)
         .map(normalizePerson)
         .filter(Boolean)
-        .filter((name) => !['pendiente', 'completar', 'cada rango'].includes(name));
+        .filter((name) => !['pendiente', 'completar', 'revisar', 'cada rango'].includes(name));
     }
 
     function getPlateriaByService() {
