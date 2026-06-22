@@ -1003,6 +1003,7 @@ function showApp() {
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
     const STORAGE_KEY = 'chamasesor-borrador-v1';
+    const APP_VERSION = '2026-06-22-nombres-cortos-cache-limpia';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -1060,6 +1061,7 @@ function showApp() {
     function formValues() {
       snapshotEditableValues();
       return {
+        appVersion: APP_VERSION,
         weekName: document.getElementById('weekName').value,
         serviceDate: document.getElementById('serviceDate').value,
         mediterraneo: document.getElementById('mediterraneo').value,
@@ -1114,6 +1116,14 @@ function showApp() {
         draft = null;
       }
       if (!draft) return;
+      if (draft.appVersion !== APP_VERSION) {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (error) {}
+        appendLog('ChamAsesor se actualizo: se limpio el borrador viejo para no arrastrar datos anteriores.');
+        updateStatus();
+        return;
+      }
       document.getElementById('weekName').value = draft.weekName || document.getElementById('weekName').value;
       document.getElementById('serviceDate').value = draft.serviceDate || document.getElementById('serviceDate').value;
       document.getElementById('mediterraneo').value = draft.mediterraneo || document.getElementById('mediterraneo').value;
@@ -1475,6 +1485,28 @@ function showApp() {
       saveDraft();
     }
 
+    function resetGeneratedOutputsForNewWeeklyFile() {
+      board.innerHTML = `
+        <div class="board-title">
+          <strong>Vista previa del cuadrante</strong>
+          <span>Nuevo cuadrante semanal cargado. Genera el dia que necesites.</span>
+        </div>
+        <div class="empty-state">Todavia no hay cuadrante generado.</div>
+      `;
+      document.getElementById('silverBuilder').hidden = true;
+      document.getElementById('silverGrid').innerHTML = '<label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>';
+      document.getElementById('warningsList').innerHTML = `
+        <div class="status-row"><span>Turnos y libres</span>${pill('Sin revisar', 'warn')}</div>
+        <div class="status-row"><span>Plateria sin duplicados</span>${pill('Sin revisar', 'warn')}</div>
+        <div class="status-row"><span>Personal de C colocado</span>${pill('Sin revisar', 'warn')}</div>
+        <div class="status-row"><span>Tareas de cierre</span>${pill('Sin revisar', 'warn')}</div>
+      `;
+      state.silverCreated = false;
+      state.editSnapshot = '';
+      state.lastWarnings = [];
+      board.removeAttribute('data-generated-day');
+    }
+
     function renderReferencePhoto() {
       const img = document.getElementById('referencePhoto');
       if (!state.photo.url) return;
@@ -1504,9 +1536,11 @@ function showApp() {
         if (state.files[key]) state.savedFiles[key] = fileLabel(state.files[key]);
         if (!state.files[key]) delete state.savedFiles[key];
         if (key === 'weekly' && state.files[key]) {
+          resetGeneratedOutputsForNewWeeklyFile();
           const foundInsideExcel = await inferScheduleFromExcelContent(state.files[key]);
           if (!foundInsideExcel) inferScheduleFromFile(state.files[key]);
           await inferHelpersFromWeeklyExcel(state.files[key]);
+          appendLog('Se limpio la generacion anterior para trabajar con este Excel nuevo.');
         }
         updateStatus();
         if (state.files[key]) appendLog(`${label}: ${fileLabel(state.files[key])}`);
