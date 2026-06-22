@@ -984,6 +984,11 @@ function showApp() {
       },
       savedFiles: {},
       weeklyHelpers: [],
+      weeklyPeople: {
+        responsables: [],
+        camareros: [],
+        ayudantes: []
+      },
       photo: {
         file: null,
         url: '',
@@ -1043,6 +1048,7 @@ function showApp() {
         silverCreated: state.silverCreated,
         savedFiles: state.savedFiles,
         weeklyHelpers: state.weeklyHelpers,
+        weeklyPeople: state.weeklyPeople,
         boardHtml: board.innerHTML,
         logText: log.textContent,
         silverBuilderOpen: !document.getElementById('silverBuilder').hidden,
@@ -1096,6 +1102,11 @@ function showApp() {
       state.silverCreated = Boolean(draft.silverCreated);
       state.savedFiles = draft.savedFiles || {};
       state.weeklyHelpers = draft.weeklyHelpers || [];
+      state.weeklyPeople = draft.weeklyPeople || {
+        responsables: [],
+        camareros: [],
+        ayudantes: state.weeklyHelpers || []
+      };
       if (draft.boardHtml) {
         board.innerHTML = draft.boardHtml;
         restoreEditableValues();
@@ -1267,43 +1278,72 @@ function showApp() {
       return String(value || '').trim().toUpperCase().replace(/\s+/g, '');
     }
 
-    function parseWeeklyHelpers(rows) {
-      const helpers = [];
+    function parseWeeklyPeople(rows) {
+      const people = {
+        responsables: [],
+        camareros: [],
+        ayudantes: []
+      };
       let inHelpers = false;
+      let section = '';
+      const sectionFromText = (text) => {
+        const value = String(text || '').toLowerCase();
+        if (/ayudantes?/.test(value)) return 'ayudantes';
+        if (/camareros?/.test(value)) return 'camareros';
+        if (/jefes|responsables?/.test(value)) return 'responsables';
+        if (/leyenda|plateria|platería/.test(value)) return '';
+        return null;
+      };
       rows.forEach((row) => {
         const cells = row.map((cell) => String(cell || '').trim()).filter(Boolean);
         if (!cells.length) return;
+        const joined = cells.join(' ');
+        const nextSection = sectionFromText(joined);
+        if (nextSection !== null) {
+          section = nextSection;
+          inHelpers = section === 'ayudantes';
+          return;
+        }
         const first = cells[0].toLowerCase();
         if (first.includes('ayudante')) {
           inHelpers = true;
+          section = 'ayudantes';
           return;
         }
-        if (inHelpers && /(leyenda|camareros|jefes|responsables|plateria|platería)/i.test(cells.join(' '))) {
+        if ((inHelpers || section) && /(leyenda|plateria|platería)/i.test(cells.join(' '))) {
           inHelpers = false;
+          section = '';
           return;
         }
-        if (!inHelpers || cells.length < 4) return;
+        if (!section || cells.length < 4) return;
         const name = cells[0].replace(/:$/, '').trim();
         const shifts = cells.slice(1, 8).map(normalizeShift);
         if (!name || shifts.length < 3) return;
-        if (shifts.some(Boolean)) helpers.push({ name, shifts });
+        if (shifts.some(Boolean) && people[section]) people[section].push({ name, shifts });
       });
-      return helpers;
+      return people;
+    }
+
+    function parseWeeklyHelpers(rows) {
+      return parseWeeklyPeople(rows).ayudantes;
     }
 
     async function inferHelpersFromWeeklyExcel(file) {
       if (!file) return;
       try {
-        const helpers = parseWeeklyHelpers(await spreadsheetRows(file));
-        state.weeklyHelpers = helpers;
-        if (helpers.length) {
-          appendLog(`Ayudantes detectados en el Excel: ${helpers.length}. La plateria puede crearse desde esos turnos.`);
+        const people = parseWeeklyPeople(await spreadsheetRows(file));
+        state.weeklyPeople = people;
+        state.weeklyHelpers = people.ayudantes;
+        const total = people.responsables.length + people.camareros.length + people.ayudantes.length;
+        if (total) {
+          appendLog(`Cuadrante semanal leído: ${people.responsables.length} responsables, ${people.camareros.length} camareros y ${people.ayudantes.length} ayudantes.`);
         } else {
-          appendLog('Aviso: no encontre la zona de Ayudantes en el Excel. La plateria usara una lista base editable.');
+          appendLog('Aviso: no encontre los grupos del cuadrante en el Excel. La hoja quedara editable para completar.');
         }
       } catch (error) {
         state.weeklyHelpers = [];
-        appendLog('No se pudieron leer los ayudantes del Excel. La plateria queda editable manualmente.');
+        state.weeklyPeople = { responsables: [], camareros: [], ayudantes: [] };
+        appendLog('No se pudo leer el cuadrante semanal del Excel. La hoja queda editable manualmente.');
       }
     }
 
@@ -1340,7 +1380,8 @@ function showApp() {
       `;
       state.editSnapshot = '';
       state.lastWarnings = [];
-      appendLog('Cuadrante general del dia limpiado. Semana, turnos, foto y plateria se mantienen.');
+      board.removeAttribute('data-generated-day');
+      appendLog('Cuadrante general refrescado. Se borran datos temporales de la generacion anterior; semana, turnos, foto y plateria se mantienen.');
       saveDraft();
     }
 
@@ -1448,10 +1489,6 @@ function showApp() {
       });
     }
 
-    function fallbackHelpers() {
-      return ['Barco', 'J. Carlos', 'Ernes', 'Yusi', 'Jenny', 'Lucia', 'Loa', 'Povi', 'Roman', 'Carlos', 'Yaiza G.', 'Yuriy', 'Emelina', 'Yessi', 'Yaiza M.'];
-    }
-
     function isAvailableForService(shift, service) {
       const value = normalizeShift(shift);
       if (!value || ['L', 'V', 'VACACIONES', 'ILT', 'BAJA', 'HS', 'P.R', 'PR', 'PERMISO', 'C.S.S', 'CSS'].includes(value)) return false;
@@ -1462,14 +1499,19 @@ function showApp() {
     }
 
     function helpersForService(dayIndex, service, usedHelpers = new Set()) {
+      return peopleForService('ayudantes', dayIndex, service, usedHelpers);
+    }
+
+    function peopleForService(group, dayIndex, service, usedPeople = new Set()) {
       const hasLoadedSchedule = Boolean(state.files.weekly || state.savedFiles.weekly);
-      if (!state.weeklyHelpers.length) {
-        return hasLoadedSchedule ? [] : fallbackHelpers().filter((helper) => !usedHelpers.has(normalizePerson(helper)));
+      const people = state.weeklyPeople?.[group] || [];
+      if (!people.length) {
+        return [];
       }
-      const available = state.weeklyHelpers
-        .filter((helper) => isAvailableForService(helper.shifts[dayIndex], service))
-        .map((helper) => helper.name)
-        .filter((name) => !usedHelpers.has(normalizePerson(name)));
+      const available = people
+        .filter((person) => isAvailableForService(person.shifts[dayIndex], service))
+        .map((person) => person.name)
+        .filter((name) => !usedPeople.has(normalizePerson(name)));
       return available;
     }
 
@@ -1478,6 +1520,14 @@ function showApp() {
       if (!helpers.length) return '';
       const selected = helpers[(dayIndex + offset) % helpers.length] || helpers[0];
       usedHelpers.add(normalizePerson(selected));
+      return selected;
+    }
+
+    function pickPerson(group, dayIndex, service, usedPeople, offset) {
+      const people = peopleForService(group, dayIndex, service, usedPeople);
+      if (!people.length) return '';
+      const selected = people[(dayIndex + offset) % people.length] || people[0];
+      usedPeople.add(normalizePerson(selected));
       return selected;
     }
 
@@ -1522,7 +1572,7 @@ function showApp() {
       state.silverCreated = true;
       updateStatus();
       if (silverResult.pendingCount) {
-        appendLog(`Planilla de plateria creada con ${silverResult.usedCount} ayudantes sin repetir. Quedan ${silverResult.pendingCount} servicios pendientes por falta de ayudantes disponibles.`);
+        appendLog(`Planilla de plateria creada con ${silverResult.usedCount} ayudantes sin repetir. Quedan ${silverResult.pendingCount} servicios por completar por falta de ayudantes disponibles.`);
       } else {
         appendLog(`Planilla de plateria creada sin repetir ayudantes: ${silverResult.usedCount} asignaciones unicas.`);
       }
@@ -1573,7 +1623,9 @@ function showApp() {
       const empty = 'Completar';
       const dayIndex = currentDayIndex();
       const usedHelpers = new Set();
+      const usedCamareros = new Set();
       const helper = (service, offset) => pickHelper(dayIndex, service, usedHelpers, offset) || empty;
+      const cam = (service, offset) => pickPerson('camareros', dayIndex, service, usedCamareros, offset) || empty;
       const silver = silverForSelectedDay();
       const silverBreakfast = silver.desayuno || helper('desayuno', 10);
       const silverLunch = silver.almuerzo || helper('almuerzo', 11);
@@ -1592,6 +1644,19 @@ function showApp() {
       const dinner2 = helper('cena', 7);
       const dinner3 = helper('cena', 8);
       const dinner4 = helper('cena', 9);
+      const breakfastCam1 = cam('desayuno', 0);
+      const breakfastCam2 = cam('desayuno', 1);
+      const breakfastCam3 = cam('desayuno', 2);
+      const breakfastCam4 = cam('desayuno', 3);
+      const breakfastTerrace = cam('desayuno', 4);
+      const lunchCam1 = cam('almuerzo', 5);
+      const lunchCam3 = cam('almuerzo', 6);
+      const lunchTerrace = cam('almuerzo', 7);
+      const dinnerCam1 = cam('cena', 8);
+      const dinnerCam2 = cam('cena', 9);
+      const dinnerCam3 = cam('cena', 10);
+      const dinnerCam4 = cam('cena', 11);
+      const dinnerTerrace = cam('cena', 12);
 
       board.innerHTML = `
         <div class="board-title">
@@ -1601,11 +1666,11 @@ function showApp() {
         <div class="services">
           <article class="service">
             <h4>Desayuno</h4>
-            ${range('1', 'Rango 1', empty, breakfast1)}
-            ${range('2', 'Rango 2', empty, breakfast2)}
-            ${range('3', 'Rango 3', empty, breakfast3)}
-            ${range('4', 'Rango 4', empty, breakfast4)}
-            ${range('T', 'Terraza', empty, '')}
+            ${range('1', 'Rango 1', breakfastCam1, breakfast1)}
+            ${range('2', 'Rango 2', breakfastCam2, breakfast2)}
+            ${range('3', 'Rango 3', breakfastCam3, breakfast3)}
+            ${range('4', 'Rango 4', breakfastCam4, breakfast4)}
+            ${range('T', 'Terraza', breakfastTerrace, '')}
             <div class="notes">
               ${note('Cafeteras', empty)}
               ${note('Plateria desayuno', silverBreakfast)}
@@ -1613,9 +1678,9 @@ function showApp() {
           </article>
           <article class="service">
             <h4>Almuerzo</h4>
-            ${range('1', 'Rango 1', empty, lunch1)}
-            ${range('3', 'Rango 3', empty, lunch3)}
-            ${range('T', 'Terraza', empty, '')}
+            ${range('1', 'Rango 1', lunchCam1, lunch1)}
+            ${range('3', 'Rango 3', lunchCam3, lunch3)}
+            ${range('T', 'Terraza', lunchTerrace, '')}
             <div class="notes">
               ${note('Plateria almuerzo', silverLunch)}
               ${note('Atenciones', empty)}
@@ -1623,11 +1688,11 @@ function showApp() {
           </article>
           <article class="service">
             <h4>Cena</h4>
-            ${range('1', 'Rango 1', empty, dinner1)}
-            ${range('2', 'Rango 2', empty, dinner2)}
-            ${range('3', 'Rango 3', empty, dinner3)}
-            ${state.ranges === 4 ? range('4', 'Rango 4', empty, dinner4) : ''}
-            ${range('T', 'Terraza', empty, '')}
+            ${range('1', 'Rango 1', dinnerCam1, dinner1)}
+            ${range('2', 'Rango 2', dinnerCam2, dinner2)}
+            ${range('3', 'Rango 3', dinnerCam3, dinner3)}
+            ${state.ranges === 4 ? range('4', 'Rango 4', dinnerCam4, dinner4) : ''}
+            ${range('T', 'Terraza', dinnerTerrace, '')}
             ${range('M', 'Mediterraneo', medText, '')}
             <div class="notes">
               ${note('Caja', empty)}
@@ -1668,6 +1733,7 @@ function showApp() {
           </article>
         </div>
       `;
+      board.dataset.generatedDay = document.getElementById('serviceDate').value;
     }
 
     function range(code, title, first, second) {
