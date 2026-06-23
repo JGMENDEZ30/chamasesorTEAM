@@ -449,17 +449,20 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 26px;
-      min-height: 18px;
+      width: 30px;
+      height: 18px;
+      flex: 0 0 30px;
       margin-left: 5px;
-      padding: 1px 5px;
+      padding: 0;
       border-radius: 999px;
-      background: #14212b;
-      color: #fff;
+      border: 1px solid #7dd3fc;
+      background: #e0f2fe;
+      color: #075985;
       font-size: 10px;
       font-weight: 900;
       line-height: 1;
       vertical-align: middle;
+      white-space: nowrap;
     }
     .task-input.has-shift {
       color: #0f172a;
@@ -1020,6 +1023,7 @@ function showApp() {
         camareros: [],
         ayudantes: []
       },
+      weeklyMediterraneo: {},
       photo: {
         file: null,
         url: '',
@@ -1033,8 +1037,8 @@ function showApp() {
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
-    const STORAGE_KEY = 'chamasesor-borrador-v13-caja-mediterraneo';
-    const APP_VERSION = '2026-06-23-1130-caja-mediterraneo';
+    const STORAGE_KEY = 'chamasesor-borrador-v14-mediterraneo-leyenda';
+    const APP_VERSION = '2026-06-23-1400-mediterraneo-leyenda';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -1108,6 +1112,7 @@ function showApp() {
         savedFiles: state.savedFiles,
         weeklyHelpers: state.weeklyHelpers,
         weeklyPeople: state.weeklyPeople,
+        weeklyMediterraneo: state.weeklyMediterraneo,
         boardHtml: board.innerHTML,
         logText: log.textContent,
         silverBuilderOpen: !document.getElementById('silverBuilder').hidden,
@@ -1169,6 +1174,7 @@ function showApp() {
       state.silverCreated = Boolean(draft.silverCreated);
       state.savedFiles = draft.savedFiles || {};
       state.weeklyHelpers = draft.weeklyHelpers || [];
+      state.weeklyMediterraneo = draft.weeklyMediterraneo || {};
       state.weeklyPeople = draft.weeklyPeople || {
         responsables: [],
         camareros: [],
@@ -1460,9 +1466,32 @@ function showApp() {
       const people = {
         responsables: [],
         camareros: [],
-        ayudantes: []
+        ayudantes: [],
+        mediterraneo: {}
       };
       const validShiftPattern = /^(M|M7|M7R|M8|M8R|M2|T|T2|C|DC|DC2|DC7|DC\+|L|V|ILT|HS|P\.R|PR|P\.R\.|C\.S\.S|CSS)$/i;
+      const mediterraneoDayIndexes = (text) => {
+        const value = String(text || '').toLowerCase();
+        const found = [];
+        [
+          [/lu(?:nes)?\s*\d*/g, 0],
+          [/ma(?:rtes)?\s*\d*/g, 1],
+          [/mi(?:e|é|ercoles|ércoles)?\s*\d*/g, 2],
+          [/ju(?:eves)?\s*\d*/g, 3],
+          [/vi(?:ernes)?\s*\d*/g, 4],
+          [/sa|sá|sab|sáb|sabado|sábado/g, 5],
+          [/do(?:mingo)?\s*\d*/g, 6]
+        ].forEach(([pattern, index]) => {
+          if (pattern.test(value)) found.push(index);
+        });
+        return [...new Set(found)];
+      };
+      const registerMediterraneoNotes = (name, group, noteText) => {
+        if (group !== 'camareros' || !name || !isAuthorizedMediterraneoCamarero(name)) return;
+        mediterraneoDayIndexes(noteText).forEach((index) => {
+          people.mediterraneo[index] = name;
+        });
+      };
       const groupFromRole = (roleText, fallback = '') => {
         const value = normalizePerson(roleText);
         if (/ayudante/.test(value)) return 'ayudantes';
@@ -1488,6 +1517,8 @@ function showApp() {
           if (!name || validCount < 3) return;
           const group = groupFromRole(row[roleIndex], groupFromRole(row[groupIndex], 'camareros'));
           people[group].push({ name, shifts });
+          const lastDayIndex = Math.max(...dayIndexes);
+          registerMediterraneoNotes(name, group, row.slice(lastDayIndex + 1).join(' '));
         });
         return people;
       }
@@ -1526,7 +1557,10 @@ function showApp() {
         const name = preferredName(cells[0]);
         const shifts = cells.slice(1, 8).map(normalizeShift);
         if (!name || shifts.length < 3) return;
-        if (shifts.some(Boolean) && people[section]) people[section].push({ name, shifts });
+        if (shifts.some(Boolean) && people[section]) {
+          people[section].push({ name, shifts });
+          registerMediterraneoNotes(name, section, cells.slice(8).join(' '));
+        }
       });
       if (!people.responsables.length && !people.camareros.length && !people.ayudantes.length) {
         const inferred = rows
@@ -1556,9 +1590,11 @@ function showApp() {
         const people = parseWeeklyPeople(await spreadsheetRows(file));
         state.weeklyPeople = people;
         state.weeklyHelpers = people.ayudantes;
+        state.weeklyMediterraneo = people.mediterraneo || {};
         const total = people.responsables.length + people.camareros.length + people.ayudantes.length;
         if (total) {
           appendLog(`Cuadrante semanal leído: ${people.responsables.length} responsables, ${people.camareros.length} camareros y ${people.ayudantes.length} ayudantes.`);
+          if (Object.keys(state.weeklyMediterraneo).length) appendLog('Leyenda de Mediterraneo leida desde el Excel.');
         } else {
           appendLog('Aviso: no encontre los grupos del cuadrante en el Excel. La hoja quedara editable para completar.');
         }
@@ -1566,6 +1602,7 @@ function showApp() {
       } catch (error) {
         state.weeklyHelpers = [];
         state.weeklyPeople = { responsables: [], camareros: [], ayudantes: [] };
+        state.weeklyMediterraneo = {};
         appendLog('No se pudo leer el cuadrante semanal del Excel. La hoja queda editable manualmente.');
         updateStatus();
       }
@@ -1741,18 +1778,49 @@ function showApp() {
       const value = normalizeShift(shift);
       if (!value || ['L', 'V', 'VACACIONES', 'ILT', 'BAJA', 'HS', 'P.R', 'PR', 'PERMISO', 'C.S.S', 'CSS'].includes(value)) return false;
       if (service === 'desayuno') return /^(M|M7|M7R|M8|M8R|M2|DC|DC2|DC7|DC\+)$/.test(value);
-      if (service === 'almuerzo') return /^(M2|M7|M7R|C|T)$/.test(value);
+      if (service === 'almuerzo') return /^(M2|M7|M7R|M8R|C|T)$/.test(value);
       if (service === 'cena') return /^(C|T|T2|DC|DC2|DC7|DC\+)$/.test(value);
       return false;
     }
 
     function isAvailableForTask(shift, service) {
       const value = normalizeShift(shift);
-      if (!value || ['L', 'V', 'VACACIONES', 'ILT', 'BAJA', 'HS', 'P.R', 'PR', 'PERMISO', 'C.S.S', 'CSS', 'M2'].includes(value)) return false;
+      if (!value || ['L', 'V', 'VACACIONES', 'ILT', 'BAJA', 'HS', 'P.R', 'PR', 'PERMISO', 'C.S.S', 'CSS'].includes(value)) return false;
       if (service === 'desayuno') return /^(M|M7|M7R|M8|M8R|DC|DC2|DC7|DC\+)$/.test(value);
-      if (service === 'almuerzo') return /^(M7|M7R|C|T)$/.test(value);
+      if (service === 'almuerzo') return /^(M2|M7|M7R|C|T)$/.test(value);
       if (service === 'cena') return /^(C|T|T2|DC|DC2|DC7|DC\+)$/.test(value);
       return false;
+    }
+
+    function shiftWindow(shift) {
+      const value = normalizeShift(shift);
+      const windows = {
+        M7: { start: 7, end: 15 },
+        M7R: { start: 7, end: 14 },
+        M: { start: 8, end: 15 },
+        M8R: { start: 8, end: 14 },
+        M2: { start: 8, end: 16 },
+        M8: { start: 8, end: 12 },
+        T: { start: 13, end: 21 },
+        T2: { start: 18, end: 22 },
+        C: { start: 14, end: 22 },
+        DC: { start: 8, end: 22, split: true },
+        'DC+': { start: 8, end: 22, split: true },
+        DC2: { start: 8, end: 22.5, split: true },
+        DC7: { start: 7, end: 22, split: true }
+      };
+      return windows[value] || null;
+    }
+
+    function coversTime(shift, hour) {
+      const window = shiftWindow(shift);
+      if (!window) return false;
+      return window.start <= hour && window.end > hour;
+    }
+
+    function availableHelpersAt(dayIndex, hour, usedPeople = new Set()) {
+      return peopleCandidatesForService('ayudantes', dayIndex, 'almuerzo', usedPeople)
+        .filter((person) => coversTime(person.shift, hour));
     }
 
     const CAJA_AUTORIZADOS = new Set([
@@ -1782,6 +1850,18 @@ function showApp() {
     function isAuthorizedMediterraneoCamarero(name) {
       const key = normalizePerson(displayPerson(name)).replace(/\.$/, '');
       return MEDITERRANEO_CAMAREROS.has(key);
+    }
+
+    function pickScheduledMediterraneoCam(dayIndex, usedPeople) {
+      const scheduled = displayPerson(state.weeklyMediterraneo?.[dayIndex]);
+      if (!scheduled) return '';
+      const person = (state.weeklyPeople?.camareros || [])
+        .find((item) => normalizePerson(displayPerson(item.name)) === normalizePerson(scheduled));
+      if (!person) return '';
+      if (!isAvailableForService(person.shifts[dayIndex], 'cena')) return '';
+      if (usedPeople.has(normalizePerson(scheduled))) return '';
+      usedPeople.add(normalizePerson(scheduled));
+      return scheduled;
     }
 
     function pickAuthorizedPerson(group, dayIndex, service, usedPeople, isAuthorized, offset = 0, extraFilter = () => true) {
@@ -1852,22 +1932,84 @@ function showApp() {
     }
 
     function pickPersonForSlot(group, dayIndex, service, usedPeople, slot, pairName = '', offset = 0) {
-      const available = peopleCandidatesForService(group, dayIndex, service, usedPeople);
-      if (!available.length) return '';
+      const allAvailable = peopleCandidatesForService(group, dayIndex, service, usedPeople);
       const slotText = String(slot);
+      const needsOpeningPair = service === 'almuerzo' && ['1', '3'].includes(slotText);
+      const openingAvailable = allAvailable.filter((person) => coversTime(person.shift, 13));
+      const openingPreferred = group === 'ayudantes' && needsOpeningPair
+        ? openingAvailable.filter((person) => ['M2', 'M7', 'T'].includes(person.shift))
+        : [];
+      const openingReduced = group === 'ayudantes' && needsOpeningPair
+        ? openingAvailable.filter((person) => ['M7R', 'M8R'].includes(person.shift))
+        : [];
+      const available = openingPreferred.length
+        ? openingPreferred
+        : (openingReduced.length ? openingReduced : (needsOpeningPair && openingAvailable.length ? openingAvailable : allAvailable));
+      if (!available.length) return '';
       const preferredTSlot = ['2', '3', '4'].includes(slotText);
-      const target = (slotIndexFor(group, slotText) + dayIndex + offset + available.length) % available.length;
+      const rotationStep = group === 'ayudantes' ? -dayIndex : dayIndex;
+      const target = (slotIndexFor(group, slotText) + rotationStep + available.length) % available.length;
       const pairIsT = isTurnoT(pairName, dayIndex);
       const selected = [...available].sort((a, b) => {
         const score = (person) => {
           let value = circularDistance(person.index % available.length, target, available.length);
-          if (person.shift === 'T' && !preferredTSlot) value += 50;
+          if (service === 'almuerzo') {
+            const pairShift = shiftForPerson(pairName, dayIndex);
+            const pairCoversOpening = coversTime(pairShift, 13);
+            const pairCoversLate = coversTime(pairShift, 15.5);
+            const coversOpening = coversTime(person.shift, 13);
+            const coversLate = coversTime(person.shift, 15.5);
+            if (pairName && !pairCoversOpening && !coversOpening) value += 100;
+            if (pairName && !pairCoversLate && !coversLate) value += 35;
+            if (!pairName && !coversOpening) value += 35;
+          }
+          if (service !== 'almuerzo' && person.shift === 'T' && !preferredTSlot) value += 50;
           if (pairIsT && person.shift === 'T') value += 80;
           return value;
         };
         return score(a) - score(b);
       })[0];
       usedPeople.add(normalizePerson(selected.name));
+      return selected.name;
+    }
+
+    function pickLunchTerracePerson(dayIndex, usedCamareros, usedHelpers) {
+      const candidates = [
+        ...peopleCandidatesForService('camareros', dayIndex, 'almuerzo', usedCamareros).map((person) => ({ ...person, group: 'camareros' })),
+        ...peopleCandidatesForService('ayudantes', dayIndex, 'almuerzo', usedHelpers).map((person) => ({ ...person, group: 'ayudantes' }))
+      ].filter((person) => coversTime(person.shift, 21.75));
+      if (!candidates.length) return '';
+      const selected = candidates.sort((a, b) => a.index - b.index)[0];
+      if (selected.group === 'camareros') usedCamareros.add(normalizePerson(selected.name));
+      if (selected.group === 'ayudantes') usedHelpers.add(normalizePerson(selected.name));
+      return selected.name;
+    }
+
+    function pickLunchReliefHelper(openingHelper, dayIndex, usedHelpers) {
+      const openingShift = shiftForPerson(openingHelper, dayIndex);
+      const window = shiftWindow(openingShift);
+      if (!window || window.end > 14) return '';
+      const candidates = peopleCandidatesForService('ayudantes', dayIndex, 'almuerzo', usedHelpers)
+        .filter((person) => person.shift === 'C');
+      if (!candidates.length) return '';
+      const selected = candidates.sort((a, b) => {
+        const aBlanca = normalizePerson(a.name) === 'blanca' ? -10 : 0;
+        const bBlanca = normalizePerson(b.name) === 'blanca' ? -10 : 0;
+        return (aBlanca + a.index) - (bBlanca + b.index);
+      })[0];
+      usedHelpers.add(normalizePerson(selected.name));
+      return selected.name;
+    }
+
+    function pickLunchReliefCam(openingCam, dayIndex, usedCamareros) {
+      const openingShift = shiftForPerson(openingCam, dayIndex);
+      const window = shiftWindow(openingShift);
+      if (!window || window.end > 15) return '';
+      const candidates = peopleCandidatesForService('camareros', dayIndex, 'almuerzo', usedCamareros)
+        .filter((person) => person.shift === 'C');
+      if (!candidates.length) return '';
+      const selected = candidates.sort((a, b) => a.index - b.index)[0];
+      usedCamareros.add(normalizePerson(selected.name));
       return selected.name;
     }
 
@@ -2030,7 +2172,8 @@ function showApp() {
       const dateText = dayName(document.getElementById('serviceDate').value);
       const med = document.getElementById('mediterraneo').value;
       const pending = 'Revisar';
-      const medClosed = med === 'closed' || (med === 'auto' && dateText.toLowerCase().includes('jueves'));
+      const dateLower = dateText.toLowerCase();
+      const medClosed = med === 'closed' || (med === 'auto' && (dateLower.includes('jueves') || dateLower.includes('domingo')));
       const empty = pending;
       const dayIndex = currentDayIndex();
       const usedHelpersByService = {
@@ -2044,10 +2187,14 @@ function showApp() {
         cena: new Set()
       };
       const usedTasks = new Set();
-      const usedResponsables = new Set();
+      const usedResponsablesByService = {
+        desayuno: new Set(),
+        almuerzo: new Set(),
+        cena: new Set()
+      };
       const helper = (service, slot, offset, pairName = '') => pickPersonForSlot('ayudantes', dayIndex, service, usedHelpersByService[service], slot, pairName, offset) || empty;
       const cam = (service, slot, offset, pairName = '') => pickPersonForSlot('camareros', dayIndex, service, usedCamarerosByService[service], slot, pairName, offset) || empty;
-      const responsable = (service, offset) => pickPersonFromGroups(['responsables'], dayIndex, service, usedResponsables, offset);
+      const responsable = (service, offset) => pickPersonFromGroups(['responsables'], dayIndex, service, usedResponsablesByService[service], offset) || empty;
       const canRepeatFromBreakfast = (group, name, service, usedSet, slot, pairName = '') => {
         const repeatedName = displayPerson(name);
         const normalized = normalizePerson(repeatedName);
@@ -2089,10 +2236,14 @@ function showApp() {
       const breakfast4 = helper('desayuno', '4', 3, breakfastCam4);
       const breakfastTerrace = cam('desayuno', 'T', 4);
       const lunchCam1 = cam('almuerzo', '1', 5);
+      const lunchCam1Relief = pickLunchReliefCam(lunchCam1, dayIndex, usedCamarerosByService.almuerzo);
       const lunch1 = helper('almuerzo', '1', 4, lunchCam1);
+      const lunch1Relief = pickLunchReliefHelper(lunch1, dayIndex, usedHelpersByService.almuerzo);
       const lunchCam3 = cam('almuerzo', '3', 6);
+      const lunchCam3Relief = pickLunchReliefCam(lunchCam3, dayIndex, usedCamarerosByService.almuerzo);
       const lunch3 = helper('almuerzo', '3', 5, lunchCam3);
-      const lunchTerrace = cam('almuerzo', 'T', 7);
+      const lunch3Relief = pickLunchReliefHelper(lunch3, dayIndex, usedHelpersByService.almuerzo);
+      const lunchTerrace = pickLunchTerracePerson(dayIndex, usedCamarerosByService.almuerzo, usedHelpersByService.almuerzo) || empty;
       const dinnerCam1 = repeatOrPick('camareros', breakfastCam1, 'cena', usedCamarerosByService.cena, '1', '', 8);
       const dinner1 = repeatOrPick('ayudantes', breakfast1, 'cena', usedHelpersByService.cena, '1', dinnerCam1, 6);
       const dinnerCam2 = repeatOrPick('camareros', breakfastCam2, 'cena', usedCamarerosByService.cena, '2', '', 9);
@@ -2110,10 +2261,10 @@ function showApp() {
       reservePeople(usedTasks, [
         silverBreakfast, silverLunch, silverDinner,
         breakfast1, breakfast2, breakfast3, breakfast4,
-        lunch1, lunch3,
+        lunch1, lunch1Relief, lunch3, lunch3Relief,
         dinner1, dinner2, dinner3, dinner4,
         breakfastCam1, breakfastCam2, breakfastCam3, breakfastCam4, breakfastTerrace,
-        lunchCam1, lunchCam3, lunchTerrace,
+        lunchCam1, lunchCam1Relief, lunchCam3, lunchCam3Relief, lunchTerrace,
         dinnerCam1, dinnerCam2, dinnerCam3, dinnerCam4, dinnerTerrace
       ]);
       const taskWorker = (service, offset) => pickTaskPerson(['ayudantes', 'camareros'], dayIndex, service, usedTasks, offset) || pending;
@@ -2122,7 +2273,8 @@ function showApp() {
         || pending;
       if (dinnerCaja !== pending) reservePeople(usedTasks, [dinnerCaja]);
       const medCam = medClosed ? 'Cerrado' : (
-        pickAuthorizedPerson('camareros', dayIndex, 'cena', usedTasks, isAuthorizedMediterraneoCamarero, 24)
+        pickScheduledMediterraneoCam(dayIndex, usedTasks)
+        || pickAuthorizedPerson('camareros', dayIndex, 'cena', usedTasks, isAuthorizedMediterraneoCamarero, 24)
         || pending
       );
       if (medCam !== pending && medCam !== 'Cerrado') reservePeople(usedTasks, [medCam]);
@@ -2145,10 +2297,41 @@ function showApp() {
         terrace: { cam: breakfastTerrace }
       };
       const lunchRanges = {
-        r1: { cam: lunchCam1, helper: lunch1 },
-        r3: { cam: lunchCam3, helper: lunch3 },
+        r1: { cam: taskName(lunchCam1, lunchCam1Relief), openingCam: lunchCam1, reliefCam: lunchCam1Relief, helper: taskName(lunch1, lunch1Relief), openingHelper: lunch1, reliefHelper: lunch1Relief },
+        r3: { cam: taskName(lunchCam3, lunchCam3Relief), openingCam: lunchCam3, reliefCam: lunchCam3Relief, helper: taskName(lunch3, lunch3Relief), openingHelper: lunch3, reliefHelper: lunch3Relief },
         terrace: { cam: lunchTerrace }
       };
+      const nameHasShift = (name, shifts) => shifts.includes(shiftForPerson(name, dayIndex));
+      const taskCandidate = (names, shifts = null, rejectShifts = []) => {
+        const list = names.map(displayPerson).filter((name) => name && !/^(Revisar|Completar|Cerrado|Cada rango)$/i.test(name));
+        const found = list.find((name) => (!shifts || nameHasShift(name, shifts)) && !rejectShifts.includes(shiftForPerson(name, dayIndex)));
+        return found || '';
+      };
+      const availableByShift = (group, service, shifts, used = usedTasks) => {
+        const found = peopleCandidatesForService(group, dayIndex, service, used)
+          .find((person) => shifts.includes(person.shift));
+        return found ? found.name : '';
+      };
+      const lunchCamReliefs = taskName(lunchCam1Relief, lunchCam3Relief);
+      const lunchCamareroC = lunchCamReliefs !== pending ? lunchCamReliefs : taskCandidate([lunchRanges.r1.openingCam, lunchRanges.r3.openingCam, lunchRanges.terrace.cam], ['C'])
+        || availableByShift('camareros', 'almuerzo', ['C']);
+      const lunchCamareroTOrC = taskCandidate([lunchRanges.r1.openingCam, lunchRanges.r3.openingCam, lunchRanges.terrace.cam], ['T', 'C'])
+        || availableByShift('camareros', 'almuerzo', ['T', 'C']);
+      const lunchAyudanteC = taskCandidate([lunchRanges.r1.openingHelper, lunchRanges.r3.openingHelper], ['C'])
+        || availableByShift('ayudantes', 'almuerzo', ['C']);
+      const lunchTerraceOrStableHelper = taskCandidate([lunchRanges.r1.openingHelper, lunchRanges.r3.openingHelper], null, ['M7R', 'M8R']);
+      const lunchAtenciones = (() => {
+        const candidate = availableHelpersAt(dayIndex, 12.5, usedTasks)[0];
+        if (!candidate) return 'Preguntar responsable';
+        usedTasks.add(normalizePerson(candidate.name));
+        return candidate.name;
+      })();
+      const lunchZumos = (() => {
+        const candidate = availableHelpersAt(dayIndex, 12.5, usedTasks)[0];
+        if (!candidate) return 'Preguntar responsable';
+        usedTasks.add(normalizePerson(candidate.name));
+        return candidate.name;
+      })();
       const dinnerRanges = {
         r1: { cam: dinnerCam1, helper: dinner1 },
         r2: { cam: dinnerCam2, helper: dinner2 },
@@ -2187,7 +2370,8 @@ function showApp() {
             ${range('T', 'Terraza', lunchTerrace, '')}
             <div class="notes">
               ${note('Plateria almuerzo', silverLunch)}
-              ${note('Atenciones', taskWorker('almuerzo', 21))}
+              ${note('Atenciones', lunchAtenciones)}
+              ${note('Zumos', lunchZumos)}
             </div>
           </article>
           <article class="service">
@@ -2219,14 +2403,14 @@ function showApp() {
           </article>
           <article class="task-card">
             <h4>Almuerzo - tareas de cierre</h4>
-            ${task('almuerzo', 'Basuras', taskName(lunchRanges.terrace.cam))}
-            ${task('almuerzo', 'Revisar bodega - baginbox 3/4', taskName(lunchRanges.r1.helper))}
-            ${task('almuerzo', 'Copas', taskName(lunchRanges.r1.cam, lunchRanges.r3.cam))}
-            ${task('almuerzo', 'Cubiertos', taskName(lunchRanges.r3.helper))}
-            ${task('almuerzo', 'Saleros y pimenteros', taskName(lunchRanges.r3.helper))}
-            ${task('almuerzo', 'Salsas / sillas de ninos', taskName(lunchRanges.r3.helper))}
+            ${task('almuerzo', 'Basuras', taskName(lunchTerraceOrStableHelper))}
+            ${task('almuerzo', 'Revisar bodega - baginbox 3/4', taskName(lunchRanges.r3.helper))}
+            ${task('almuerzo', 'Copas', taskName(lunchCamareroC, lunchRanges.r3.cam))}
+            ${task('almuerzo', 'Cubiertos', taskName(lunchAyudanteC))}
+            ${task('almuerzo', 'Saleros y pimenteros', taskName(lunchRanges.r1.openingHelper))}
+            ${task('almuerzo', 'Salsas / sillas de ninos', taskName(lunchTerraceOrStableHelper))}
             ${task('almuerzo', 'Rellenado de aparadores', taskName(lunchRanges.r1.cam))}
-            ${task('almuerzo', 'Repartir cartas / repartir material', taskName(lunchRanges.r1.cam))}
+            ${task('almuerzo', 'Repartir cartas / repartir material', taskName(lunchCamareroTOrC))}
             ${task('almuerzo', 'Limpieza de grifos', taskName(lunchRanges.r3.cam))}
           </article>
           <article class="task-card">
@@ -2320,7 +2504,7 @@ function showApp() {
 
     function specialShiftForDisplay(name, dayIndex = currentDayIndex()) {
       const shift = shiftForPerson(name, dayIndex);
-      return ['M7', 'M2', 'M7R', 'M8R', 'C'].includes(shift) ? shift : '';
+      return ['T', 'M7', 'M2', 'M7R', 'M8R', 'C'].includes(shift) ? shift : '';
     }
 
     function personWithShiftBadge(value) {
@@ -2756,3 +2940,4 @@ function showApp() {
   </script>
 </body>
 </html>
+
