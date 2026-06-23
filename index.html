@@ -445,6 +445,26 @@
     .pill.ok { color: #065f46; background: #d1fae5; }
     .pill.warn { color: var(--warn); background: var(--warn-soft); }
     .pill.danger { color: var(--danger); background: var(--danger-soft); }
+    .shift-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 26px;
+      min-height: 18px;
+      margin-left: 5px;
+      padding: 1px 5px;
+      border-radius: 999px;
+      background: #14212b;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+      vertical-align: middle;
+    }
+    .task-input.has-shift {
+      color: #0f172a;
+      background: #f8fafc;
+    }
     .preview {
       display: grid;
       gap: 14px;
@@ -771,7 +791,7 @@
         <div>
           <h2>ChamAsesor</h2>
           <p class="subtitle">Cuadrantes, turnos y plateria</p>
-          <span class="version-badge">VERSION NUEVA 23/06 - LECTURA NOMBRES CORREGIDA</span>
+          <span class="version-badge">REGLAS OFICIALES - CAJA Y MEDITERRANEO</span>
         </div>
         <div class="actions">
           <button class="btn primary" id="generateBtn">Generar cuadrante</button>
@@ -780,7 +800,7 @@
         </div>
       </div>
 
-      <div class="action-feedback" id="actionFeedback">VERSION NUEVA 23/06 cargada. Lee Nombre o Nombre completo y rellena con nombres disponibles.</div>
+      <div class="action-feedback" id="actionFeedback">Reglas oficiales aplicadas: Caja y Mediterraneo solo con personas autorizadas.</div>
 
       <div class="grid">
         <section class="panel">
@@ -1013,8 +1033,8 @@ function showApp() {
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
-    const STORAGE_KEY = 'chamasesor-borrador-v8-nombres-corregidos';
-    const APP_VERSION = '2026-06-23-0900-nombres-corregidos';
+    const STORAGE_KEY = 'chamasesor-borrador-v13-caja-mediterraneo';
+    const APP_VERSION = '2026-06-23-1130-caja-mediterraneo';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -1735,6 +1755,45 @@ function showApp() {
       return false;
     }
 
+    const CAJA_AUTORIZADOS = new Set([
+      'povi',
+      'carlos g',
+      'carlos',
+      'ernes',
+      'loa',
+      'roman',
+      'chamo',
+      'vero'
+    ]);
+
+    const MEDITERRANEO_CAMAREROS = new Set([
+      'chamo',
+      'alvarez',
+      'vero',
+      'atteneri',
+      'blanco'
+    ]);
+
+    function isAuthorizedForCaja(name) {
+      const key = normalizePerson(displayPerson(name)).replace(/\.$/, '');
+      return CAJA_AUTORIZADOS.has(key);
+    }
+
+    function isAuthorizedMediterraneoCamarero(name) {
+      const key = normalizePerson(displayPerson(name)).replace(/\.$/, '');
+      return MEDITERRANEO_CAMAREROS.has(key);
+    }
+
+    function pickAuthorizedPerson(group, dayIndex, service, usedPeople, isAuthorized, offset = 0, extraFilter = () => true) {
+      const available = peopleCandidatesForService(group, dayIndex, service, usedPeople)
+        .filter((person) => isAuthorized(person.name))
+        .filter(extraFilter);
+      if (!available.length) return '';
+      const selected = available[(dayIndex + offset) % available.length] || available[0];
+      usedPeople.add(normalizePerson(selected.name));
+      return selected.name;
+    }
+
     function helpersForService(dayIndex, service, usedHelpers = new Set()) {
       return peopleForService('ayudantes', dayIndex, service, usedHelpers);
     }
@@ -1749,6 +1808,67 @@ function showApp() {
         .map((person) => displayPerson(person.name))
         .filter((name) => !usedPeople.has(normalizePerson(name)));
       return available;
+    }
+
+    function peopleCandidatesForService(group, dayIndex, service, usedPeople = new Set()) {
+      return (state.weeklyPeople?.[group] || [])
+        .map((person, index) => ({
+          name: displayPerson(person.name),
+          shift: normalizeShift(person.shifts[dayIndex]),
+          index
+        }))
+        .filter((person) => person.name && isAvailableForService(person.shift, service))
+        .filter((person) => !usedPeople.has(normalizePerson(person.name)));
+    }
+
+    function shiftForPerson(name, dayIndex) {
+      const normalized = normalizePerson(displayPerson(name));
+      if (!normalized) return '';
+      const groups = ['responsables', 'camareros', 'ayudantes'];
+      for (const group of groups) {
+        const found = (state.weeklyPeople?.[group] || [])
+          .find((person) => normalizePerson(displayPerson(person.name)) === normalized);
+        if (found) return normalizeShift(found.shifts[dayIndex]);
+      }
+      return '';
+    }
+
+    function isTurnoT(name, dayIndex) {
+      return shiftForPerson(name, dayIndex) === 'T';
+    }
+
+    function circularDistance(index, target, length) {
+      if (!length) return 0;
+      const direct = Math.abs(index - target);
+      return Math.min(direct, length - direct);
+    }
+
+    function slotIndexFor(group, slot) {
+      const forward = ['1', '2', '3', '4', 'T'];
+      const backward = ['4', '3', '2', '1', 'T'];
+      const order = group === 'ayudantes' ? backward : forward;
+      const index = order.indexOf(String(slot));
+      return index >= 0 ? index : order.length - 1;
+    }
+
+    function pickPersonForSlot(group, dayIndex, service, usedPeople, slot, pairName = '', offset = 0) {
+      const available = peopleCandidatesForService(group, dayIndex, service, usedPeople);
+      if (!available.length) return '';
+      const slotText = String(slot);
+      const preferredTSlot = ['2', '3', '4'].includes(slotText);
+      const target = (slotIndexFor(group, slotText) + dayIndex + offset + available.length) % available.length;
+      const pairIsT = isTurnoT(pairName, dayIndex);
+      const selected = [...available].sort((a, b) => {
+        const score = (person) => {
+          let value = circularDistance(person.index % available.length, target, available.length);
+          if (person.shift === 'T' && !preferredTSlot) value += 50;
+          if (pairIsT && person.shift === 'T') value += 80;
+          return value;
+        };
+        return score(a) - score(b);
+      })[0];
+      usedPeople.add(normalizePerson(selected.name));
+      return selected.name;
     }
 
     function pickHelper(dayIndex, service, usedHelpers, offset) {
@@ -1910,48 +2030,78 @@ function showApp() {
       const dateText = dayName(document.getElementById('serviceDate').value);
       const med = document.getElementById('mediterraneo').value;
       const pending = 'Revisar';
-      const medText = med === 'closed' || (med === 'auto' && dateText.toLowerCase().includes('jueves')) ? 'Cerrado' : pending;
+      const medClosed = med === 'closed' || (med === 'auto' && dateText.toLowerCase().includes('jueves'));
       const empty = pending;
       const dayIndex = currentDayIndex();
-      const usedHelpers = new Set();
-      const usedCamareros = new Set();
+      const usedHelpersByService = {
+        desayuno: new Set(),
+        almuerzo: new Set(),
+        cena: new Set()
+      };
+      const usedCamarerosByService = {
+        desayuno: new Set(),
+        almuerzo: new Set(),
+        cena: new Set()
+      };
       const usedTasks = new Set();
       const usedResponsables = new Set();
-      const helper = (service, offset) => pickPersonFromGroups(['ayudantes'], dayIndex, service, usedHelpers, offset) || empty;
-      const cam = (service, offset) => pickPersonFromGroups(['camareros'], dayIndex, service, usedCamareros, offset) || empty;
+      const helper = (service, slot, offset, pairName = '') => pickPersonForSlot('ayudantes', dayIndex, service, usedHelpersByService[service], slot, pairName, offset) || empty;
+      const cam = (service, slot, offset, pairName = '') => pickPersonForSlot('camareros', dayIndex, service, usedCamarerosByService[service], slot, pairName, offset) || empty;
       const responsable = (service, offset) => pickPersonFromGroups(['responsables'], dayIndex, service, usedResponsables, offset);
+      const canRepeatFromBreakfast = (group, name, service, usedSet, slot, pairName = '') => {
+        const repeatedName = displayPerson(name);
+        const normalized = normalizePerson(repeatedName);
+        if (!normalized || normalized === normalizePerson(empty) || usedSet.has(normalized)) return false;
+        const person = (state.weeklyPeople?.[group] || []).find((item) => normalizePerson(displayPerson(item.name)) === normalized);
+        if (!person || !isAvailableForService(person.shifts[dayIndex], service)) return false;
+        if (normalizeShift(person.shifts[dayIndex]) === 'T' && !['2', '3', '4'].includes(String(slot))) return false;
+        if (normalizeShift(person.shifts[dayIndex]) === 'T' && isTurnoT(pairName, dayIndex)) return false;
+        return true;
+      };
+      const repeatOrPick = (group, breakfastName, service, usedSet, slot, pairName = '', offset = 0) => {
+        const repeatedName = displayPerson(breakfastName);
+        if (canRepeatFromBreakfast(group, repeatedName, service, usedSet, slot, pairName)) {
+          usedSet.add(normalizePerson(repeatedName));
+          return repeatedName;
+        }
+        return pickPersonForSlot(group, dayIndex, service, usedSet, slot, pairName, offset) || empty;
+      };
       const silver = silverForSelectedDay();
-      const silverBreakfast = displayPerson(silver.desayuno) || helper('desayuno', 10);
-      const silverLunch = displayPerson(silver.almuerzo) || helper('almuerzo', 11);
-      const silverDinner = displayPerson(silver.cena) || helper('cena', 12);
-      [silverBreakfast, silverLunch, silverDinner].forEach((name) => {
+      const silverBreakfast = displayPerson(silver.desayuno) || helper('desayuno', 'T', 10);
+      const silverLunch = displayPerson(silver.almuerzo) || helper('almuerzo', 'T', 11);
+      const silverDinner = displayPerson(silver.cena) || helper('cena', 'T', 12);
+      [
+        ['desayuno', silverBreakfast],
+        ['almuerzo', silverLunch],
+        ['cena', silverDinner]
+      ].forEach(([service, name]) => {
         const normalized = normalizePerson(name);
-        if (normalized && normalized !== normalizePerson(empty)) usedHelpers.add(normalized);
+        if (normalized && normalized !== normalizePerson(empty)) usedHelpersByService[service].add(normalized);
         if (normalized && normalized !== normalizePerson(empty)) usedTasks.add(normalized);
       });
-      const breakfast1 = helper('desayuno', 0);
-      const breakfast2 = helper('desayuno', 1);
-      const breakfast3 = helper('desayuno', 2);
-      const breakfast4 = helper('desayuno', 3);
-      const lunch1 = helper('almuerzo', 4);
-      const lunch3 = helper('almuerzo', 5);
-      const dinner1 = helper('cena', 6);
-      const dinner2 = helper('cena', 7);
-      const dinner3 = helper('cena', 8);
-      const dinner4 = helper('cena', 9);
-      const breakfastCam1 = cam('desayuno', 0);
-      const breakfastCam2 = cam('desayuno', 1);
-      const breakfastCam3 = cam('desayuno', 2);
-      const breakfastCam4 = cam('desayuno', 3);
-      const breakfastTerrace = cam('desayuno', 4);
-      const lunchCam1 = cam('almuerzo', 5);
-      const lunchCam3 = cam('almuerzo', 6);
-      const lunchTerrace = cam('almuerzo', 7);
-      const dinnerCam1 = cam('cena', 8);
-      const dinnerCam2 = cam('cena', 9);
-      const dinnerCam3 = cam('cena', 10);
-      const dinnerCam4 = cam('cena', 11);
-      const dinnerTerrace = cam('cena', 12);
+      const breakfastCam1 = cam('desayuno', '1', 0);
+      const breakfast1 = helper('desayuno', '1', 0, breakfastCam1);
+      const breakfastCam2 = cam('desayuno', '2', 1);
+      const breakfast2 = helper('desayuno', '2', 1, breakfastCam2);
+      const breakfastCam3 = cam('desayuno', '3', 2);
+      const breakfast3 = helper('desayuno', '3', 2, breakfastCam3);
+      const breakfastCam4 = cam('desayuno', '4', 3);
+      const breakfast4 = helper('desayuno', '4', 3, breakfastCam4);
+      const breakfastTerrace = cam('desayuno', 'T', 4);
+      const lunchCam1 = cam('almuerzo', '1', 5);
+      const lunch1 = helper('almuerzo', '1', 4, lunchCam1);
+      const lunchCam3 = cam('almuerzo', '3', 6);
+      const lunch3 = helper('almuerzo', '3', 5, lunchCam3);
+      const lunchTerrace = cam('almuerzo', 'T', 7);
+      const dinnerCam1 = repeatOrPick('camareros', breakfastCam1, 'cena', usedCamarerosByService.cena, '1', '', 8);
+      const dinner1 = repeatOrPick('ayudantes', breakfast1, 'cena', usedHelpersByService.cena, '1', dinnerCam1, 6);
+      const dinnerCam2 = repeatOrPick('camareros', breakfastCam2, 'cena', usedCamarerosByService.cena, '2', '', 9);
+      const dinner2 = repeatOrPick('ayudantes', breakfast2, 'cena', usedHelpersByService.cena, '2', dinnerCam2, 7);
+      const dinnerCam3 = repeatOrPick('camareros', breakfastCam3, 'cena', usedCamarerosByService.cena, '3', '', 10);
+      const dinner3 = repeatOrPick('ayudantes', breakfast3, 'cena', usedHelpersByService.cena, '3', dinnerCam3, 8);
+      const dinnerCam4 = repeatOrPick('camareros', breakfastCam4, 'cena', usedCamarerosByService.cena, '4', '', 11);
+      const dinner4 = repeatOrPick('ayudantes', breakfast4, 'cena', usedHelpersByService.cena, '4', dinnerCam4, 9);
+      const dinnerTerrace = repeatOrPick('camareros', breakfastTerrace, 'cena', usedCamarerosByService.cena, 'T', '', 12);
       const breakfastResp1 = responsable('desayuno', 0);
       const breakfastResp2 = responsable('desayuno', 1);
       const lunchResp = responsable('almuerzo', 2);
@@ -1967,6 +2117,45 @@ function showApp() {
         dinnerCam1, dinnerCam2, dinnerCam3, dinnerCam4, dinnerTerrace
       ]);
       const taskWorker = (service, offset) => pickTaskPerson(['ayudantes', 'camareros'], dayIndex, service, usedTasks, offset) || pending;
+      const dinnerCaja = pickAuthorizedPerson('ayudantes', dayIndex, 'cena', usedTasks, isAuthorizedForCaja, 22)
+        || pickAuthorizedPerson('camareros', dayIndex, 'cena', usedTasks, isAuthorizedForCaja, 23)
+        || pending;
+      if (dinnerCaja !== pending) reservePeople(usedTasks, [dinnerCaja]);
+      const medCam = medClosed ? 'Cerrado' : (
+        pickAuthorizedPerson('camareros', dayIndex, 'cena', usedTasks, isAuthorizedMediterraneoCamarero, 24)
+        || pending
+      );
+      if (medCam !== pending && medCam !== 'Cerrado') reservePeople(usedTasks, [medCam]);
+      const medHelper = medClosed ? '' : (
+        pickAuthorizedPerson('ayudantes', dayIndex, 'cena', usedTasks, () => true, 25, (person) => person.shift !== 'T')
+        || ''
+      );
+      if (medHelper) reservePeople(usedTasks, [medHelper]);
+      const taskName = (...names) => {
+        const clean = names
+          .map(displayPerson)
+          .filter((name) => name && !/^(Revisar|Completar|Cerrado|Cada rango)$/i.test(name));
+        return clean.length ? clean.join(' / ') : pending;
+      };
+      const breakfastRanges = {
+        r1: { cam: breakfastCam1, helper: breakfast1 },
+        r2: { cam: breakfastCam2, helper: breakfast2 },
+        r3: { cam: breakfastCam3, helper: breakfast3 },
+        r4: { cam: breakfastCam4, helper: breakfast4 },
+        terrace: { cam: breakfastTerrace }
+      };
+      const lunchRanges = {
+        r1: { cam: lunchCam1, helper: lunch1 },
+        r3: { cam: lunchCam3, helper: lunch3 },
+        terrace: { cam: lunchTerrace }
+      };
+      const dinnerRanges = {
+        r1: { cam: dinnerCam1, helper: dinner1 },
+        r2: { cam: dinnerCam2, helper: dinner2 },
+        r3: { cam: dinnerCam3, helper: dinner3 },
+        r4: { cam: dinnerCam4, helper: dinner4 },
+        terrace: { cam: dinnerTerrace }
+      };
 
       board.innerHTML = `
         <div class="board-title">
@@ -2008,9 +2197,9 @@ function showApp() {
             ${range('3', 'Rango 3', dinnerCam3, dinner3)}
             ${state.ranges === 4 ? range('4', 'Rango 4', dinnerCam4, dinner4) : ''}
             ${range('T', 'Terraza', dinnerTerrace, '')}
-            ${range('M', 'Mediterraneo', medText, '')}
+            ${range('M', 'Mediterraneo', medCam, medHelper)}
             <div class="notes">
-              ${note('Caja', taskWorker('cena', 22))}
+              ${note('Caja', dinnerCaja)}
               ${note('Plateria-recogida de pisos 18h', silverDinner)}
             </div>
           </article>
@@ -2018,33 +2207,34 @@ function showApp() {
         <div class="tasks-preview">
           <article class="task-card">
             <h4>Desayuno - tareas de cierre</h4>
-            ${task('desayuno', 'Cont/Ropa / Sal / Pl. cafe / M. Zumos', taskWorker('desayuno', 23))}
-            ${task('desayuno', 'Tazas / lavar y sacar esterillas', taskWorker('desayuno', 24))}
-            ${task('desayuno', 'Repartir material', taskWorker('desayuno', 25))}
-            ${task('desayuno', 'Microondas / teteras', taskWorker('desayuno', 26))}
-            ${task('desayuno', 'Azucar rangos', taskWorker('desayuno', 27))}
-            ${task('desayuno', 'Cuberterio', taskWorker('desayuno', 28))}
-            ${task('desayuno', 'Tronas, basura, cascos, roturas, limpieza bodega', taskWorker('desayuno', 29))}
-            ${task('desayuno', 'Cargar neveras', taskWorker('desayuno', 30))}
-            ${task('desayuno', 'Baginbox - cerveza', taskWorker('desayuno', 31))}
+            ${task('desayuno', 'Cont/Ropa / Sal / Pl. cafe / M. Zumos', taskName(breakfastRanges.r3.helper))}
+            ${task('desayuno', 'Tazas / lavar y sacar esterillas', taskName(breakfastRanges.r4.helper))}
+            ${task('desayuno', 'Repartir material', taskName(breakfastRanges.r1.cam))}
+            ${task('desayuno', 'Microondas / teteras', taskName(breakfastRanges.terrace.cam))}
+            ${task('desayuno', 'Azucar rangos', taskName(breakfastRanges.r3.cam))}
+            ${task('desayuno', 'Cuberterio', taskName(breakfastRanges.r2.helper))}
+            ${task('desayuno', 'Tronas, basura, cascos, roturas, limpieza bodega', taskName(breakfastRanges.r1.helper))}
+            ${task('desayuno', 'Cargar neveras', taskName(breakfastRanges.r4.cam))}
+            ${task('desayuno', 'Baginbox - cerveza', taskName(breakfastRanges.r2.cam))}
           </article>
           <article class="task-card">
             <h4>Almuerzo - tareas de cierre</h4>
-            ${task('almuerzo', 'Basuras', taskWorker('almuerzo', 32))}
-            ${task('almuerzo', 'Revisar bodega - baginbox 3/4', taskWorker('almuerzo', 33))}
-            ${task('almuerzo', 'Copas', taskWorker('almuerzo', 34))}
-            ${task('almuerzo', 'Cubiertos', taskWorker('almuerzo', 35))}
-            ${task('almuerzo', 'Saleros y pimenteros', taskWorker('almuerzo', 36))}
-            ${task('almuerzo', 'Salsas / sillas de ninos', taskWorker('almuerzo', 37))}
-            ${task('almuerzo', 'Rellenado de aparadores', taskWorker('almuerzo', 38))}
-            ${task('almuerzo', 'Repartir cartas / repartir material', taskWorker('almuerzo', 39))}
-            ${task('almuerzo', 'Limpieza de grifos', taskWorker('almuerzo', 40))}
+            ${task('almuerzo', 'Basuras', taskName(lunchRanges.terrace.cam))}
+            ${task('almuerzo', 'Revisar bodega - baginbox 3/4', taskName(lunchRanges.r1.helper))}
+            ${task('almuerzo', 'Copas', taskName(lunchRanges.r1.cam, lunchRanges.r3.cam))}
+            ${task('almuerzo', 'Cubiertos', taskName(lunchRanges.r3.helper))}
+            ${task('almuerzo', 'Saleros y pimenteros', taskName(lunchRanges.r3.helper))}
+            ${task('almuerzo', 'Salsas / sillas de ninos', taskName(lunchRanges.r3.helper))}
+            ${task('almuerzo', 'Rellenado de aparadores', taskName(lunchRanges.r1.cam))}
+            ${task('almuerzo', 'Repartir cartas / repartir material', taskName(lunchRanges.r1.cam))}
+            ${task('almuerzo', 'Limpieza de grifos', taskName(lunchRanges.r3.cam))}
           </article>
           <article class="task-card">
             <h4>Cena - tareas de cierre</h4>
             ${task('cena', 'Sillas de ninos', 'Cada rango')}
-            ${task('cena', 'Decoracion + reponer vinos', taskWorker('cena', 41))}
-            ${task('cena', 'Ayuda pisos', taskWorker('cena', 42))}
+            ${task('cena', 'Decoracion + reponer vinos', taskName(dinnerCaja))}
+            ${task('cena', 'Recoger articulos cena especial', taskName(dinnerCaja))}
+            ${task('cena', 'Ayudar piso', taskName(dinnerRanges.r3.helper, dinnerRanges.r4.helper, dinnerRanges.terrace.cam))}
           </article>
         </div>
       `;
@@ -2055,13 +2245,13 @@ function showApp() {
     function range(code, title, first, second) {
       const firstName = displayPerson(first);
       const secondName = displayPerson(second);
-      const secondLine = secondName ? `<div class="line"><span>Ayudant@</span><strong>${secondName}</strong></div>` : '';
+      const secondLine = secondName ? `<div class="line"><span>Ayudant@</span><strong>${personWithShiftBadge(secondName)}</strong></div>` : '';
       return `
         <div class="range">
           <div class="range-code">${code}</div>
           <div class="range-body">
             <b>${title}</b>
-            <div class="line"><span>Camarer@</span><strong>${firstName}</strong></div>
+            <div class="line"><span>Camarer@</span><strong>${personWithShiftBadge(firstName)}</strong></div>
             ${secondLine}
           </div>
         </div>
@@ -2069,14 +2259,16 @@ function showApp() {
     }
 
     function note(title, value) {
-      return `<div class="note"><span>${title}</span><strong>${displayPerson(value)}</strong></div>`;
+      return `<div class="note"><span>${title}</span><strong>${personWithShiftBadge(value)}</strong></div>`;
     }
 
     function task(service, title, value) {
+      const taskValue = taskValueWithShift(value);
+      const hasShift = taskValue !== displayPerson(value);
       return `
         <div class="task-row" data-service="${service}" data-task="${title}">
           <span>${title}</span>
-          <input class="task-input" value="${escapeAttr(displayPerson(value))}" aria-label="${title}">
+          <input class="task-input${hasShift ? ' has-shift' : ''}" value="${escapeAttr(taskValue)}" aria-label="${title}">
         </div>
       `;
     }
@@ -2126,16 +2318,48 @@ function showApp() {
       return (date.getDay() || 7) - 1;
     }
 
-    function shiftForPerson(name) {
-      const normalized = normalizePerson(name);
+    function specialShiftForDisplay(name, dayIndex = currentDayIndex()) {
+      const shift = shiftForPerson(name, dayIndex);
+      return ['M7', 'M2', 'M7R', 'M8R', 'C'].includes(shift) ? shift : '';
+    }
+
+    function personWithShiftBadge(value) {
+      const text = displayPerson(value);
+      if (!text) return '';
+      if (/^(Revisar|Completar|Cerrado|Cada rango)$/i.test(text)) return escapeAttr(text);
+      const parts = splitPeople(text);
+      if (parts.length > 1) {
+        return parts.map((part) => personWithShiftBadge(part)).join(' / ');
+      }
+      const shift = specialShiftForDisplay(text);
+      return `${escapeAttr(text)}${shift ? ` <span class="shift-badge">${shift}</span>` : ''}`;
+    }
+
+    function taskValueWithShift(value) {
+      const text = displayPerson(value);
+      if (!text || /^(Revisar|Completar|Cerrado|Cada rango)$/i.test(text)) return text;
+      const parts = splitPeople(text);
+      if (parts.length > 1) {
+        return parts.map((part) => {
+          const display = displayPerson(part);
+          const shift = specialShiftForDisplay(display);
+          return shift ? `${display} ${shift}` : display;
+        }).join(' / ');
+      }
+      const shift = specialShiftForDisplay(text);
+      return shift ? `${text} ${shift}` : text;
+    }
+
+    function shiftForPerson(name, dayIndex = currentDayIndex()) {
+      const normalized = normalizePerson(displayPerson(name));
       const allPeople = [
         ...(state.weeklyPeople.responsables || []),
         ...(state.weeklyPeople.camareros || []),
         ...(state.weeklyPeople.ayudantes || [])
       ];
-      const person = allPeople.find((item) => normalizePerson(item.name) === normalized);
+      const person = allPeople.find((item) => normalizePerson(displayPerson(item.name)) === normalized);
       if (!person) return '';
-      return normalizeShift(person.shifts[currentDayIndex()]);
+      return normalizeShift(person.shifts[dayIndex]);
     }
 
     function peopleStatusWarnings() {
@@ -2210,6 +2434,7 @@ function showApp() {
     function splitPeople(value) {
       return String(value || '')
         .split(/\/|,| y /i)
+        .map((name) => name.replace(/\b(M7R|M8R|M7|M2|C)\b/gi, '').trim())
         .map(normalizePerson)
         .filter(Boolean)
         .filter((name) => !['pendiente', 'completar', 'revisar', 'cada rango'].includes(name));
