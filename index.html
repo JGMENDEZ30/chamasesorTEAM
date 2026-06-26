@@ -1115,8 +1115,8 @@ function showApp() {
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
-    const STORAGE_KEY = 'chamasesor-borrador-v25-sin-loa-fija-rango2';
-    const APP_VERSION = '2026-06-26-2055-sin-loa-fija-rango2';
+    const STORAGE_KEY = 'chamasesor-borrador-v26-plateria-cierre-t-rango3';
+    const APP_VERSION = '2026-06-26-2115-plateria-cierre-t-rango3';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -2169,6 +2169,15 @@ function showApp() {
       return selected.name;
     }
 
+    function pickDinnerClosingCam(dayIndex, usedCamareros, offset = 0) {
+      const candidates = peopleCandidatesForService('camareros', dayIndex, 'cena', usedCamareros)
+        .filter((person) => person.shift !== 'T' && coversTime(person.shift, 21.75));
+      if (!candidates.length) return '';
+      const selected = candidates[(dayIndex + offset) % candidates.length] || candidates[0];
+      usedCamareros.add(normalizePerson(selected.name));
+      return selected.name;
+    }
+
     function pickNamedTurnoTAyudante(dayIndex, usedHelpers, expectedName) {
       const expected = normalizePerson(expectedName);
       const selected = peopleCandidatesForService('ayudantes', dayIndex, 'cena', usedHelpers)
@@ -2276,7 +2285,8 @@ function showApp() {
     }
 
     function pickSilverHelper(dayIndex, service, weeklyUse, usedToday, offset) {
-      const available = peopleCandidatesForService('ayudantes', dayIndex, service, new Set());
+      const available = peopleCandidatesForService('ayudantes', dayIndex, service, new Set())
+        .filter((person) => service !== 'cena' || (person.shift !== 'T' && coversTime(person.shift, 21.75)));
       const scoreCandidates = (allowConsecutive, allowThird) => available
         .filter((person) => !usedToday.has(normalizePerson(person.name)))
         .filter((person) => {
@@ -2323,7 +2333,9 @@ function showApp() {
         const lunch = pickSilverHelper(dayIndex, 'almuerzo', weeklyUse, usedToday, 3);
         if (!lunch) pendingCount += 1;
         else usedCount += 1;
-        const dinnerHelpers = helpersForService(dayIndex, 'cena', new Set());
+        const dinnerHelpers = peopleCandidatesForService('ayudantes', dayIndex, 'cena', new Set())
+          .filter((person) => person.shift !== 'T' && coversTime(person.shift, 21.75))
+          .map((person) => person.name);
         const dinner = pickSilverHelper(dayIndex, 'cena', weeklyUse, usedToday, 6);
         if (!dinner) pendingCount += 1;
         else usedCount += 1;
@@ -2511,11 +2523,16 @@ function showApp() {
       const lunchTerrace = pickLunchTerracePerson(dayIndex, usedCamarerosByService.almuerzo, usedHelpersByService.almuerzo) || empty;
       const dinnerCam1 = repeatOrPick('camareros', breakfastCam1, 'cena', usedCamarerosByService.cena, '1', '', 8);
       const dinner1 = repeatOrPick('ayudantes', breakfast1, 'cena', usedHelpersByService.cena, '1', dinnerCam1, 6);
-      const dinnerCam2 = reservedDinnerTCam || repeatOrPick('camareros', breakfastCam2, 'cena', usedCamarerosByService.cena, '2', '', 9);
-      const dinner2 = reservedDinnerTCam
+      const putTInRange3 = state.ranges === 3 && reservedDinnerTCam && !reservedPoviSupport;
+      const dinnerCam2 = putTInRange3
+        ? (repeatOrPick('camareros', breakfastCam2, 'cena', usedCamarerosByService.cena, '2', '', 9) || pickDinnerClosingCam(dayIndex, usedCamarerosByService.cena, 9))
+        : (reservedDinnerTCam || repeatOrPick('camareros', breakfastCam2, 'cena', usedCamarerosByService.cena, '2', '', 9));
+      const dinner2 = !putTInRange3 && reservedDinnerTCam
         ? (pickDinnerClosingHelper(dayIndex, usedHelpersByService.cena, 7) || repeatOrPick('ayudantes', breakfast2, 'cena', usedHelpersByService.cena, '2', dinnerCam2, 7))
         : repeatOrPick('ayudantes', breakfast2, 'cena', usedHelpersByService.cena, '2', dinnerCam2, 7);
-      const dinnerCam3 = repeatOrPick('camareros', breakfastCam3, 'cena', usedCamarerosByService.cena, '3', '', 10);
+      const dinnerCam3Base = repeatOrPick('camareros', breakfastCam3, 'cena', usedCamarerosByService.cena, '3', '', 10)
+        || pickDinnerClosingCam(dayIndex, usedCamarerosByService.cena, 10);
+      const dinnerCam3 = putTInRange3 ? peopleLabel([dinnerCam3Base, reservedDinnerTCam]) : dinnerCam3Base;
       const dinner3ClosingHelper = reservedPoviSupport
         ? (pickDinnerClosingHelper(dayIndex, usedHelpersByService.cena, 8) || repeatOrPick('ayudantes', breakfast3, 'cena', usedHelpersByService.cena, '3', dinnerCam3, 8))
         : repeatOrPick('ayudantes', breakfast3, 'cena', usedHelpersByService.cena, '3', dinnerCam3, 8);
