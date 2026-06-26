@@ -1115,8 +1115,8 @@ function showApp() {
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
-    const STORAGE_KEY = 'chamasesor-borrador-v21-chapas-separadas-edicion';
-    const APP_VERSION = '2026-06-26-1940-chapas-separadas-edicion';
+    const STORAGE_KEY = 'chamasesor-borrador-v25-sin-loa-fija-rango2';
+    const APP_VERSION = '2026-06-26-2055-sin-loa-fija-rango2';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -1928,6 +1928,10 @@ function showApp() {
       '2026-07-04': 'Atteneri'
     };
 
+    const MEDITERRANEO_HELPERS_MANUAL = {
+      '2026-06-29': 'Yuriy'
+    };
+
     function isAuthorizedForCaja(name) {
       const key = normalizePerson(displayPerson(name)).replace(/\.$/, '');
       return CAJA_AUTORIZADOS.has(key);
@@ -1946,6 +1950,11 @@ function showApp() {
       return '';
     }
 
+    function scheduledMediterraneoHelperName() {
+      const dateValue = document.getElementById('serviceDate')?.value || '';
+      return MEDITERRANEO_HELPERS_MANUAL[dateValue] || '';
+    }
+
     function pickScheduledMediterraneoCam(dayIndex, usedPeople) {
       const scheduled = scheduledMediterraneoName(dayIndex);
       if (!scheduled) return '';
@@ -1956,6 +1965,18 @@ function showApp() {
       if (usedPeople.has(normalizePerson(scheduled))) return '';
       usedPeople.add(normalizePerson(scheduled));
       return scheduled;
+    }
+
+    function pickMediterraneoHelper(dayIndex, usedHelpers) {
+      const scheduled = scheduledMediterraneoHelperName();
+      const candidates = peopleCandidatesForService('ayudantes', dayIndex, 'cena', usedHelpers)
+        .filter((person) => person.shift !== 'T' && coversTime(person.shift, 21.75));
+      const selected = scheduled
+        ? candidates.find((person) => normalizePerson(person.name) === normalizePerson(scheduled))
+        : candidates[0];
+      if (!selected) return '';
+      usedHelpers.add(normalizePerson(selected.name));
+      return selected.name;
     }
 
     function pickAuthorizedPerson(group, dayIndex, service, usedPeople, isAuthorized, offset = 0, extraFilter = () => true) {
@@ -2466,6 +2487,8 @@ function showApp() {
       ) || pending;
       const reservedMedCam = medClosed ? 'Cerrado' : pickScheduledMediterraneoCam(dayIndex, usedCamarerosByService.cena);
       if (reservedMedCam && reservedMedCam !== 'Cerrado') reservePeople(usedTasks, [reservedMedCam]);
+      const reservedMedHelper = medClosed ? '' : pickMediterraneoHelper(dayIndex, usedHelpersByService.cena);
+      if (reservedMedHelper) reservePeople(usedTasks, [reservedMedHelper]);
       const reservedDinnerTCam = pickDinnerTurnoTCamarero(dayIndex, usedCamarerosByService.cena);
       const reservedPoviSupport = pickNamedTurnoTAyudante(dayIndex, usedHelpersByService.cena, 'Povi');
       const breakfastCam1 = cam('desayuno', '1', 0);
@@ -2526,10 +2549,11 @@ function showApp() {
       );
       if (medCam !== pending && medCam !== 'Cerrado') reservePeople(usedTasks, [medCam]);
       const medHelper = medClosed ? '' : (
-        pickAuthorizedPerson('ayudantes', dayIndex, 'cena', usedTasks, () => true, 25, (person) => person.shift !== 'T')
-        || ''
+        reservedMedHelper
+        || pickAuthorizedPerson('ayudantes', dayIndex, 'cena', usedTasks, () => true, 25, (person) => person.shift !== 'T' && coversTime(person.shift, 21.75))
+        || pending
       );
-      if (medHelper) reservePeople(usedTasks, [medHelper]);
+      if (medHelper && medHelper !== pending) reservePeople(usedTasks, [medHelper]);
       const taskName = (...names) => {
         const clean = names
           .map(displayPerson)
