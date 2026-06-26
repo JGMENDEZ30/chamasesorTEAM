@@ -562,10 +562,13 @@
     .board-title {
       padding: 14px 16px;
       border-bottom: 1px solid var(--line);
+      text-align: center;
     }
     .board-title strong {
       display: block;
-      font-size: 22px;
+      font-size: 28px;
+      letter-spacing: 0;
+      text-transform: uppercase;
     }
     .board-title span {
       display: block;
@@ -593,6 +596,19 @@
       background: var(--dark);
       text-align: center;
       text-transform: uppercase;
+    }
+    .service h4 span {
+      display: block;
+      font-size: 15px;
+    }
+    .service h4 small {
+      display: block;
+      margin-top: 4px;
+      color: #dbeafe;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.25;
+      text-transform: none;
     }
     .range {
       display: grid;
@@ -649,8 +665,8 @@
     .note span {
       display: block;
       padding: 4px 6px;
-      color: #fff;
-      background: var(--dark);
+      color: #334155;
+      background: #eaf1f8;
       font-size: 10px;
       font-weight: 800;
       text-transform: uppercase;
@@ -659,6 +675,8 @@
       display: block;
       min-height: 28px;
       padding: 6px;
+      color: #0f172a;
+      background: #fff;
       font-size: 13px;
     }
     .empty-state {
@@ -1146,8 +1164,8 @@ function showApp() {
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
-    const STORAGE_KEY = 'chamasesor-borrador-v31-relevo-c-mismo-rango';
-    const APP_VERSION = '2026-06-26-2255-relevo-c-mismo-rango';
+    const STORAGE_KEY = 'chamasesor-borrador-v32-formato-turnos-columnas';
+    const APP_VERSION = '2026-06-26-2310-formato-turnos-columnas';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -2477,6 +2495,11 @@ function showApp() {
       return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
 
+    function boardDayTitle(dateValue) {
+      const date = new Date(`${dateValue}T12:00:00`);
+      return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric' }).toUpperCase();
+    }
+
     function silverForSelectedDay() {
       const label = weekDayLabels()[currentDayIndex()];
       const result = {};
@@ -2507,7 +2530,9 @@ function showApp() {
         return false;
       }
       const week = document.getElementById('weekName').value || 'Semana';
+      const serviceDateValue = document.getElementById('serviceDate').value;
       const dateText = dayName(document.getElementById('serviceDate').value);
+      const shortDateText = boardDayTitle(serviceDateValue);
       const med = document.getElementById('mediterraneo').value;
       const pending = 'Revisar';
       const dateLower = dateText.toLowerCase();
@@ -2727,17 +2752,12 @@ function showApp() {
 
       board.innerHTML = `
         <div class="board-title">
-          <strong>Cuadrante de servicio - ${dateText}</strong>
-              <span>${week}. Vista previa generada por ChamAsesor.</span>
-        </div>
-        <div class="status-grid">
-          <div class="status-row"><span>Responsables desayuno</span>${pill(peopleLabel([breakfastResp1, breakfastResp2]), 'ok')}</div>
-          <div class="status-row"><span>Responsable almuerzo</span>${pill(peopleLabel([lunchResp]), 'ok')}</div>
-          <div class="status-row"><span>Responsables cena</span>${pill(peopleLabel([dinnerResp1, dinnerResp2]), 'ok')}</div>
+          <strong>${shortDateText}</strong>
+          <span>${week}. ${dateText}</span>
         </div>
         <div class="services">
           <article class="service">
-            <h4>Desayuno</h4>
+            <h4><span>Desayuno</span><small>Responsables: ${peopleLabel([breakfastResp1, breakfastResp2])}</small></h4>
             ${range('1', 'Rango 1', breakfastCam1, breakfast1)}
             ${range('2', 'Rango 2', breakfastCam2, breakfast2)}
             ${range('3', 'Rango 3', breakfastCam3, breakfast3)}
@@ -2749,7 +2769,7 @@ function showApp() {
             </div>
           </article>
           <article class="service">
-            <h4>Almuerzo</h4>
+            <h4><span>Almuerzo</span><small>Responsable: ${peopleLabel([lunchResp])}</small></h4>
             ${rangeWithRelief('1', 'Rango 1', lunchCam1, lunchCam1Relief, lunch1, lunch1Relief)}
             ${rangeWithRelief('3', 'Rango 3', lunchCam3, lunchCam3Relief, lunch3, lunch3Relief)}
             ${range('T', 'Terraza', lunchTerrace, '')}
@@ -2760,7 +2780,7 @@ function showApp() {
             </div>
           </article>
           <article class="service">
-            <h4>Cena</h4>
+            <h4><span>Cena</span><small>Responsables: ${peopleLabel([dinnerResp1, dinnerResp2])}</small></h4>
             ${range('1', 'Rango 1', dinnerCam1, dinner1)}
             ${range('2', 'Rango 2', dinnerCam2, dinner2)}
             ${range('3', 'Rango 3', dinnerCam3, dinner3)}
