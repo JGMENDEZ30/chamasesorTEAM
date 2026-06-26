@@ -370,33 +370,73 @@
     .silver-grid {
       display: grid;
       grid-template-columns: 1.2fr repeat(3, 1fr);
-      gap: 6px;
+      gap: 0;
       margin-top: 8px;
       font-size: 12px;
+      border: 2px solid #111827;
+      background: #fff;
+    }
+    .silver-sheet-brand,
+    .silver-sheet-title {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: #111827;
+      border-bottom: 1px solid #111827;
+    }
+    .silver-sheet-brand {
+      padding: 12px 8px 4px;
+      font-size: 13px;
+      letter-spacing: 4px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .silver-sheet-title {
+      padding: 8px;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 15px;
+      text-transform: uppercase;
+      background: #f8fafc;
     }
     .silver-grid label {
       margin: 0;
-      padding: 7px 6px;
-      color: #fff;
-      background: var(--dark);
-      border-radius: 4px;
+      padding: 9px 6px;
+      color: #111827;
+      background: #f3f4f6;
+      border-right: 1px solid #111827;
+      border-bottom: 1px solid #111827;
+      border-radius: 0;
       text-align: center;
-      font-size: 10px;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .silver-grid label:nth-of-type(4n) {
+      border-right: 0;
     }
     .silver-grid input {
       min-width: 0;
-      padding: 7px 6px;
-      border: 1px solid var(--line);
-      border-radius: 5px;
+      padding: 9px 6px;
+      border: 0;
+      border-right: 1px solid #111827;
+      border-bottom: 1px solid #111827;
+      border-radius: 0;
       font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
     }
     .silver-grid select {
       min-width: 0;
-      padding: 7px 6px;
-      border: 1px solid var(--line);
-      border-radius: 5px;
+      padding: 9px 6px;
+      border: 0;
+      border-right: 1px solid #111827;
+      border-bottom: 1px solid #111827;
+      border-radius: 0;
       background: #fff;
       font-size: 12px;
+      font-weight: 800;
+    }
+    .silver-grid .silver-input[data-service="cena"] {
+      border-right: 0;
     }
     .hint {
       margin: 7px 0 0;
@@ -825,7 +865,9 @@
                 <label>Planilla de plateria semanal</label>
                 <p class="hint">Se llena con ayudantes disponibles segun sus turnos. Puedes cambiar cualquier nombre antes de imprimir.</p>
                 <div class="silver-grid" id="silverGrid">
-                  <label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>
+                  <div class="silver-sheet-brand">Best Hotels · Best Tenerife</div>
+                  <div class="silver-sheet-title">LISTADO DE LA PLATERIA -------- SEMANA</div>
+                  <label>DIA DE LA SEMANA</label><label>DESAYUNO</label><label>ALMUERZO</label><label>CENA</label>
                 </div>
               </div>
             </div>
@@ -1037,8 +1079,8 @@ function showApp() {
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
-    const STORAGE_KEY = 'chamasesor-borrador-v14-mediterraneo-leyenda';
-    const APP_VERSION = '2026-06-23-1400-mediterraneo-leyenda';
+    const STORAGE_KEY = 'chamasesor-borrador-v17-plateria-formato-rotacion';
+    const APP_VERSION = '2026-06-26-1700-plateria-formato-rotacion';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -1655,7 +1697,7 @@ function showApp() {
         <div class="empty-state">Todavia no hay cuadrante generado.</div>
       `;
       document.getElementById('silverBuilder').hidden = true;
-      document.getElementById('silverGrid').innerHTML = '<label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>';
+      document.getElementById('silverGrid').innerHTML = silverGridHeader();
       document.getElementById('warningsList').innerHTML = `
         <div class="status-row"><span>Turnos y libres</span>${pill('Sin revisar', 'warn')}</div>
         <div class="status-row"><span>Plateria sin duplicados</span>${pill('Sin revisar', 'warn')}</div>
@@ -1842,6 +1884,14 @@ function showApp() {
       'blanco'
     ]);
 
+    const MEDITERRANEO_MANUAL = {
+      '2026-06-29': 'Alvarez',
+      '2026-06-30': 'Chamo',
+      '2026-07-01': 'Chamo',
+      '2026-07-03': 'Vero',
+      '2026-07-04': 'Atteneri'
+    };
+
     function isAuthorizedForCaja(name) {
       const key = normalizePerson(displayPerson(name)).replace(/\.$/, '');
       return CAJA_AUTORIZADOS.has(key);
@@ -1852,8 +1902,16 @@ function showApp() {
       return MEDITERRANEO_CAMAREROS.has(key);
     }
 
+    function scheduledMediterraneoName(dayIndex) {
+      const fromExcel = displayPerson(state.weeklyMediterraneo?.[dayIndex]);
+      if (fromExcel) return fromExcel;
+      const dateValue = document.getElementById('serviceDate')?.value || '';
+      if (MEDITERRANEO_MANUAL[dateValue]) return MEDITERRANEO_MANUAL[dateValue];
+      return '';
+    }
+
     function pickScheduledMediterraneoCam(dayIndex, usedPeople) {
-      const scheduled = displayPerson(state.weeklyMediterraneo?.[dayIndex]);
+      const scheduled = scheduledMediterraneoName(dayIndex);
       if (!scheduled) return '';
       const person = (state.weeklyPeople?.camareros || [])
         .find((item) => normalizePerson(displayPerson(item.name)) === normalizePerson(scheduled));
@@ -1872,6 +1930,38 @@ function showApp() {
       const selected = available[(dayIndex + offset) % available.length] || available[0];
       usedPeople.add(normalizePerson(selected.name));
       return selected.name;
+    }
+
+    function pickDinnerCaja(dayIndex, usedTasks, usedHelpersCena, usedCamarerosCena) {
+      const pickFromGroup = (group, usedService, offset) => {
+        const blocked = new Set([...usedTasks, ...usedService]);
+        const available = peopleCandidatesForService(group, dayIndex, 'cena', blocked)
+          .filter((person) => isAuthorizedForCaja(person.name))
+          .filter((person) => person.shift !== 'T');
+        if (!available.length) return null;
+        const selected = available[(dayIndex + offset) % available.length] || available[0];
+        usedService.add(normalizePerson(selected.name));
+        usedTasks.add(normalizePerson(selected.name));
+        return selected.name;
+      };
+      return pickFromGroup('ayudantes', usedHelpersCena, 22)
+        || pickFromGroup('camareros', usedCamarerosCena, 23)
+        || '';
+    }
+
+    function pickBreakfastCafeteras(dayIndex, usedTasks, usedHelpersDesayuno, usedCamarerosDesayuno) {
+      const pickFromGroup = (group, usedService, offset) => {
+        const blocked = new Set([...usedTasks, ...usedService]);
+        const available = peopleCandidatesForService(group, dayIndex, 'desayuno', blocked);
+        if (!available.length) return null;
+        const selected = available[(dayIndex + offset) % available.length] || available[0];
+        usedService.add(normalizePerson(selected.name));
+        usedTasks.add(normalizePerson(selected.name));
+        return selected.name;
+      };
+      return pickFromGroup('ayudantes', usedHelpersDesayuno, 30)
+        || pickFromGroup('camareros', usedCamarerosDesayuno, 31)
+        || '';
     }
 
     function helpersForService(dayIndex, service, usedHelpers = new Set()) {
@@ -1977,9 +2067,24 @@ function showApp() {
       const candidates = [
         ...peopleCandidatesForService('camareros', dayIndex, 'almuerzo', usedCamareros).map((person) => ({ ...person, group: 'camareros' })),
         ...peopleCandidatesForService('ayudantes', dayIndex, 'almuerzo', usedHelpers).map((person) => ({ ...person, group: 'ayudantes' }))
-      ].filter((person) => coversTime(person.shift, 21.75));
+      ].filter((person) => person.shift !== 'T' && coversTime(person.shift, 21.75));
       if (!candidates.length) return '';
       const selected = candidates.sort((a, b) => a.index - b.index)[0];
+      if (selected.group === 'camareros') usedCamareros.add(normalizePerson(selected.name));
+      if (selected.group === 'ayudantes') usedHelpers.add(normalizePerson(selected.name));
+      return selected.name;
+    }
+
+    function pickDinnerTerracePerson(dayIndex, usedCamareros, usedHelpers) {
+      const candidates = [
+        ...peopleCandidatesForService('camareros', dayIndex, 'cena', usedCamareros).map((person) => ({ ...person, group: 'camareros' })),
+        ...peopleCandidatesForService('ayudantes', dayIndex, 'cena', usedHelpers).map((person) => ({ ...person, group: 'ayudantes' }))
+      ].filter((person) => person.shift !== 'T' && coversTime(person.shift, 21.75));
+      if (!candidates.length) return '';
+      const selected = candidates.sort((a, b) => {
+        const groupScore = (person) => person.group === 'camareros' ? 0 : 20;
+        return (groupScore(a) + a.index) - (groupScore(b) + b.index);
+      })[0];
       if (selected.group === 'camareros') usedCamareros.add(normalizePerson(selected.name));
       if (selected.group === 'ayudantes') usedHelpers.add(normalizePerson(selected.name));
       return selected.name;
@@ -2064,30 +2169,75 @@ function showApp() {
       return clean.length ? clean.join(' / ') : 'Revisar';
     }
 
+    function silverGridHeader() {
+      const week = (document.getElementById('weekName')?.value || 'Semana').replace(/^Semana\s*/i, '').trim();
+      return `
+        <div class="silver-sheet-brand">Best Hotels · Best Tenerife</div>
+        <div class="silver-sheet-title">LISTADO DE LA PLATERIA -------- SEMANA ${escapeAttr(week || '')}</div>
+        <label>DIA DE LA SEMANA</label><label>DESAYUNO</label><label>ALMUERZO</label><label>CENA</label>
+      `;
+    }
+
+    function pickSilverHelper(dayIndex, service, weeklyUse, usedToday, offset) {
+      const available = peopleCandidatesForService('ayudantes', dayIndex, service, new Set());
+      const scoreCandidates = (allowConsecutive, allowThird) => available
+        .filter((person) => !usedToday.has(normalizePerson(person.name)))
+        .filter((person) => {
+          const key = normalizePerson(person.name);
+          const info = weeklyUse.get(key) || { count: 0, lastDay: -10 };
+          if (!allowThird && info.count >= 2) return false;
+          if (!allowConsecutive && info.lastDay === dayIndex - 1) return false;
+          return true;
+        })
+        .sort((a, b) => {
+          const aInfo = weeklyUse.get(normalizePerson(a.name)) || { count: 0, lastDay: -10 };
+          const bInfo = weeklyUse.get(normalizePerson(b.name)) || { count: 0, lastDay: -10 };
+          const aDistance = dayIndex - aInfo.lastDay;
+          const bDistance = dayIndex - bInfo.lastDay;
+          return (aInfo.count - bInfo.count)
+            || (bDistance - aDistance)
+            || (((a.index + offset) % 50) - ((b.index + offset) % 50));
+        });
+      const selected = scoreCandidates(false, false)[0]
+        || scoreCandidates(true, false)[0]
+        || scoreCandidates(true, true)[0];
+      if (!selected) return '';
+      const key = normalizePerson(selected.name);
+      const info = weeklyUse.get(key) || { count: 0, lastDay: -10 };
+      weeklyUse.set(key, { count: info.count + 1, lastDay: dayIndex });
+      usedToday.add(key);
+      return selected.name;
+    }
+
     function buildSilverRows() {
       const days = weekDayLabels();
       const grid = document.getElementById('silverGrid');
-      const usedHelpers = new Set();
+      const weeklyUse = new Map();
       let pendingCount = 0;
-      grid.innerHTML = '<label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>';
+      let usedCount = 0;
+      grid.innerHTML = silverGridHeader();
       days.forEach((day, dayIndex) => {
-        const breakfastHelpers = helpersForService(dayIndex, 'desayuno', usedHelpers);
-        const breakfast = pickHelper(dayIndex, 'desayuno', usedHelpers, 0);
+        const usedToday = new Set();
+        const breakfastHelpers = helpersForService(dayIndex, 'desayuno', new Set());
+        const breakfast = pickSilverHelper(dayIndex, 'desayuno', weeklyUse, usedToday, 0);
         if (!breakfast) pendingCount += 1;
-        const lunchHelpers = helpersForService(dayIndex, 'almuerzo', usedHelpers);
-        const lunch = pickHelper(dayIndex, 'almuerzo', usedHelpers, 3);
+        else usedCount += 1;
+        const lunchHelpers = helpersForService(dayIndex, 'almuerzo', new Set());
+        const lunch = pickSilverHelper(dayIndex, 'almuerzo', weeklyUse, usedToday, 3);
         if (!lunch) pendingCount += 1;
-        const dinnerHelpers = helpersForService(dayIndex, 'cena', usedHelpers);
-        const dinner = pickHelper(dayIndex, 'cena', usedHelpers, 6);
+        else usedCount += 1;
+        const dinnerHelpers = helpersForService(dayIndex, 'cena', new Set());
+        const dinner = pickSilverHelper(dayIndex, 'cena', weeklyUse, usedToday, 6);
         if (!dinner) pendingCount += 1;
+        else usedCount += 1;
         grid.insertAdjacentHTML('beforeend', `
-          <input value="${day}" aria-label="${day}" readonly>
+          <input class="silver-day" value="${day}" aria-label="${day}" readonly>
           ${silverSelect(day, 'desayuno', breakfastHelpers, breakfast)}
           ${silverSelect(day, 'almuerzo', lunchHelpers, lunch)}
           ${silverSelect(day, 'cena', dinnerHelpers, dinner)}
         `);
       });
-      return { usedCount: usedHelpers.size, pendingCount };
+      return { usedCount, pendingCount };
     }
 
     function silverSelect(day, service, helpers, selected) {
@@ -2105,16 +2255,16 @@ function showApp() {
       state.silverCreated = true;
       updateStatus();
       if (silverResult.pendingCount) {
-        appendLog(`Planilla de plateria creada con ${silverResult.usedCount} ayudantes sin repetir. Quedan ${silverResult.pendingCount} servicios por completar por falta de ayudantes disponibles.`);
+        appendLog(`Planilla de plateria creada: maximo 2 veces por persona y evitando dias seguidos. Quedan ${silverResult.pendingCount} servicios por completar por falta de ayudantes disponibles.`);
       } else {
-        appendLog(`Planilla de plateria creada sin repetir ayudantes: ${silverResult.usedCount} asignaciones unicas.`);
+        appendLog(`Planilla de plateria creada completa: ${silverResult.usedCount} servicios, maximo 2 veces por persona y sin dias seguidos cuando hay disponibilidad.`);
       }
       saveDraft();
     });
 
     document.getElementById('clearSilverBtn').addEventListener('click', () => {
       document.getElementById('silverBuilder').hidden = true;
-      document.getElementById('silverGrid').innerHTML = '<label>Dia</label><label>Desayuno</label><label>Almuerzo</label><label>Cena</label>';
+      document.getElementById('silverGrid').innerHTML = silverGridHeader();
       state.silverCreated = false;
       updateStatus();
       appendLog('Plateria limpiada.');
@@ -2226,6 +2376,18 @@ function showApp() {
         if (normalized && normalized !== normalizePerson(empty)) usedHelpersByService[service].add(normalized);
         if (normalized && normalized !== normalizePerson(empty)) usedTasks.add(normalized);
       });
+      const breakfastCafeteras = pickBreakfastCafeteras(
+        dayIndex,
+        usedTasks,
+        usedHelpersByService.desayuno,
+        usedCamarerosByService.desayuno
+      ) || pending;
+      const dinnerCaja = pickDinnerCaja(
+        dayIndex,
+        usedTasks,
+        usedHelpersByService.cena,
+        usedCamarerosByService.cena
+      ) || pending;
       const breakfastCam1 = cam('desayuno', '1', 0);
       const breakfast1 = helper('desayuno', '1', 0, breakfastCam1);
       const breakfastCam2 = cam('desayuno', '2', 1);
@@ -2252,7 +2414,11 @@ function showApp() {
       const dinner3 = repeatOrPick('ayudantes', breakfast3, 'cena', usedHelpersByService.cena, '3', dinnerCam3, 8);
       const dinnerCam4 = repeatOrPick('camareros', breakfastCam4, 'cena', usedCamarerosByService.cena, '4', '', 11);
       const dinner4 = repeatOrPick('ayudantes', breakfast4, 'cena', usedHelpersByService.cena, '4', dinnerCam4, 9);
-      const dinnerTerrace = repeatOrPick('camareros', breakfastTerrace, 'cena', usedCamarerosByService.cena, 'T', '', 12);
+      const dinnerTerrace = pickDinnerTerracePerson(
+        dayIndex,
+        usedCamarerosByService.cena,
+        usedHelpersByService.cena
+      ) || empty;
       const breakfastResp1 = responsable('desayuno', 0);
       const breakfastResp2 = responsable('desayuno', 1);
       const lunchResp = responsable('almuerzo', 2);
@@ -2263,15 +2429,11 @@ function showApp() {
         breakfast1, breakfast2, breakfast3, breakfast4,
         lunch1, lunch1Relief, lunch3, lunch3Relief,
         dinner1, dinner2, dinner3, dinner4,
-        breakfastCam1, breakfastCam2, breakfastCam3, breakfastCam4, breakfastTerrace,
+        breakfastCam1, breakfastCam2, breakfastCam3, breakfastCam4, breakfastTerrace, breakfastCafeteras,
         lunchCam1, lunchCam1Relief, lunchCam3, lunchCam3Relief, lunchTerrace,
         dinnerCam1, dinnerCam2, dinnerCam3, dinnerCam4, dinnerTerrace
       ]);
       const taskWorker = (service, offset) => pickTaskPerson(['ayudantes', 'camareros'], dayIndex, service, usedTasks, offset) || pending;
-      const dinnerCaja = pickAuthorizedPerson('ayudantes', dayIndex, 'cena', usedTasks, isAuthorizedForCaja, 22)
-        || pickAuthorizedPerson('camareros', dayIndex, 'cena', usedTasks, isAuthorizedForCaja, 23)
-        || pending;
-      if (dinnerCaja !== pending) reservePeople(usedTasks, [dinnerCaja]);
       const medCam = medClosed ? 'Cerrado' : (
         pickScheduledMediterraneoCam(dayIndex, usedTasks)
         || pickAuthorizedPerson('camareros', dayIndex, 'cena', usedTasks, isAuthorizedMediterraneoCamarero, 24)
@@ -2320,18 +2482,32 @@ function showApp() {
       const lunchAyudanteC = taskCandidate([lunchRanges.r1.openingHelper, lunchRanges.r3.openingHelper], ['C'])
         || availableByShift('ayudantes', 'almuerzo', ['C']);
       const lunchTerraceOrStableHelper = taskCandidate([lunchRanges.r1.openingHelper, lunchRanges.r3.openingHelper], null, ['M7R', 'M8R']);
-      const lunchAtenciones = (() => {
-        const candidate = availableHelpersAt(dayIndex, 12.5, usedTasks)[0];
+      const lunchSupportUsed = new Set();
+      const lunchSupportFromRanges = (shifts) => {
+        const names = [lunchRanges.r1.openingHelper, lunchRanges.r3.openingHelper].map(displayPerson);
+        const found = names.find((name) => {
+          const normalized = normalizePerson(name);
+          if (!normalized || lunchSupportUsed.has(normalized)) return false;
+          return shifts.includes(shiftForPerson(name, dayIndex));
+        });
+        if (found) lunchSupportUsed.add(normalizePerson(found));
+        return found || '';
+      };
+      const lunchSupportTask = () => {
+        const fromReduced = lunchSupportFromRanges(['M8R', 'M7R']);
+        if (fromReduced) return fromReduced;
+        const fromMorning = lunchSupportFromRanges(['M2', 'M7']);
+        if (fromMorning) return fromMorning;
+        const blocked = new Set([...usedTasks, ...lunchSupportUsed]);
+        const candidate = availableHelpersAt(dayIndex, 12.5, blocked)
+          .filter((person) => ['M8R', 'M7R', 'M2', 'M7'].includes(person.shift))[0];
         if (!candidate) return 'Preguntar responsable';
         usedTasks.add(normalizePerson(candidate.name));
+        lunchSupportUsed.add(normalizePerson(candidate.name));
         return candidate.name;
-      })();
-      const lunchZumos = (() => {
-        const candidate = availableHelpersAt(dayIndex, 12.5, usedTasks)[0];
-        if (!candidate) return 'Preguntar responsable';
-        usedTasks.add(normalizePerson(candidate.name));
-        return candidate.name;
-      })();
+      };
+      const lunchAtenciones = lunchSupportTask();
+      const lunchZumos = lunchSupportTask();
       const dinnerRanges = {
         r1: { cam: dinnerCam1, helper: dinner1 },
         r2: { cam: dinnerCam2, helper: dinner2 },
@@ -2359,7 +2535,7 @@ function showApp() {
             ${range('4', 'Rango 4', breakfastCam4, breakfast4)}
             ${range('T', 'Terraza', breakfastTerrace, '')}
             <div class="notes">
-              ${note('Cafeteras', taskWorker('desayuno', 20))}
+              ${note('Cafeteras', breakfastCafeteras)}
               ${note('Plateria desayuno', silverBreakfast)}
             </div>
           </article>
@@ -2637,19 +2813,31 @@ function showApp() {
     }
 
     function duplicateSilverHelpers() {
-      const seen = new Map();
-      const duplicates = [];
+      const byPerson = new Map();
       document.querySelectorAll('.silver-input').forEach((input) => {
         const normalized = normalizePerson(input.value);
         if (!normalized) return;
-        const place = `${input.dataset.day} ${input.dataset.service}`;
-        if (seen.has(normalized)) {
-          duplicates.push(`${input.value}: ${seen.get(normalized)} y ${place}`);
-        } else {
-          seen.set(normalized, place);
+        if (!byPerson.has(normalized)) byPerson.set(normalized, []);
+        byPerson.get(normalized).push({
+          name: displayPerson(input.value),
+          day: input.dataset.day,
+          service: input.dataset.service,
+          dayIndex: weekDayLabels().findIndex((label) => label === input.dataset.day)
+        });
+      });
+      const warnings = [];
+      byPerson.forEach((items) => {
+        if (items.length > 2) {
+          warnings.push(`${items[0].name}: aparece ${items.length} veces en plateria; maximo 2 por semana.`);
+        }
+        const sorted = [...items].sort((a, b) => a.dayIndex - b.dayIndex);
+        for (let index = 1; index < sorted.length; index += 1) {
+          if (sorted[index].dayIndex >= 0 && sorted[index - 1].dayIndex >= 0 && sorted[index].dayIndex - sorted[index - 1].dayIndex === 1) {
+            warnings.push(`${items[0].name}: plateria en dias seguidos (${sorted[index - 1].day} y ${sorted[index].day}).`);
+          }
         }
       });
-      return duplicates;
+      return warnings;
     }
 
     function validateTaskEdits() {
