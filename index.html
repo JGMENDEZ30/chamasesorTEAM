@@ -489,15 +489,15 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 30px;
+      width: 34px;
       height: 18px;
-      flex: 0 0 30px;
-      margin-left: 5px;
+      flex: 0 0 34px;
+      margin-left: 7px;
       padding: 0;
       border-radius: 999px;
-      border: 1px solid #7dd3fc;
-      background: #e0f2fe;
-      color: #075985;
+      border: 1px solid #0369a1;
+      background: #f0f9ff;
+      color: #0c4a6e;
       font-size: 10px;
       font-weight: 900;
       line-height: 1;
@@ -507,7 +507,7 @@
     .person-chip {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 7px;
       max-width: 100%;
       vertical-align: middle;
     }
@@ -522,8 +522,12 @@
       box-shadow: inset 0 0 0 1px #bae6fd;
     }
     .editing .shift-badge {
-      pointer-events: none;
-      user-select: none;
+      pointer-events: auto;
+      user-select: text;
+      background: #fff7ed;
+      border-color: #fb923c;
+      color: #7c2d12;
+      outline: 0;
     }
     .relief-mark {
       display: inline-flex;
@@ -542,7 +546,8 @@
     }
     .task-input.has-shift {
       color: #0f172a;
-      background: #f8fafc;
+      background: #eef6ff;
+      border-left: 3px solid #0284c7;
     }
     .preview {
       display: grid;
@@ -714,7 +719,7 @@
       min-height: 30px;
       border: 0;
       padding: 6px 7px;
-      color: var(--ink);
+      color: #0f172a;
       background: #fff;
       text-align: center;
       text-transform: uppercase;
@@ -739,6 +744,29 @@
       gap: 8px;
       flex-wrap: wrap;
       align-items: center;
+    }
+    .check-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .check-tab {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 8px 10px;
+      color: var(--ink);
+      background: #fff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .check-tab.active {
+      color: #fff;
+      border-color: var(--dark);
+      background: var(--dark);
+    }
+    .check-view[hidden] {
+      display: none;
     }
     .photo-preview-wrap {
       min-height: 220px;
@@ -940,6 +968,7 @@
                 <option value="open">Abierto</option>
                 <option value="closed">Cerrado</option>
               </select>
+              <input id="mediterraneoManual" type="text" placeholder="Nombre Mediterraneo si no lo lee Excel">
             </div>
             <div class="field">
               <label for="notes">Notas del responsable</label>
@@ -949,26 +978,28 @@
         </section>
 
         <section class="preview">
-          <div class="panel">
-            <h3>Comprobaciones</h3>
+          <div class="panel" id="checksPanel" hidden>
+            <h3>Comprobaciones y avisos</h3>
             <div class="panel-body">
-              <div class="status" id="statusList">
-                <div class="status-row"><span>Cuadrante semanal</span><span class="pill warn">Sin cargar</span></div>
-                <div class="status-row"><span>Plateria desde ayudantes</span><span class="pill warn">Sin crear</span></div>
-                <div class="status-row"><span>Cuadrante anterior</span><span class="pill warn">Opcional</span></div>
-                <div class="status-row"><span>Cena</span><span class="pill ok">3 rangos</span></div>
+              <div class="check-tabs" role="tablist">
+                <button class="check-tab active" type="button" data-check-tab="status">Comprobaciones</button>
+                <button class="check-tab" type="button" data-check-tab="warnings">Avisos</button>
               </div>
-            </div>
-          </div>
-
-          <div class="panel">
-            <h3>Avisos antes de imprimir</h3>
-            <div class="panel-body">
-              <div class="status" id="warningsList">
-                <div class="status-row"><span>Turnos y libres</span><span class="pill warn">Sin revisar</span></div>
-                <div class="status-row"><span>Plateria sin duplicados</span><span class="pill warn">Sin revisar</span></div>
-                <div class="status-row"><span>Personal de C colocado</span><span class="pill warn">Sin revisar</span></div>
-                <div class="status-row"><span>Tareas de cierre</span><span class="pill warn">Sin revisar</span></div>
+              <div class="check-view" id="statusCheckView">
+                <div class="status" id="statusList">
+                  <div class="status-row"><span>Cuadrante semanal</span><span class="pill warn">Sin cargar</span></div>
+                  <div class="status-row"><span>Plateria desde ayudantes</span><span class="pill warn">Sin crear</span></div>
+                  <div class="status-row"><span>Cuadrante anterior</span><span class="pill warn">Opcional</span></div>
+                  <div class="status-row"><span>Cena</span><span class="pill ok">3 rangos</span></div>
+                </div>
+              </div>
+              <div class="check-view" id="warningsCheckView" hidden>
+                <div class="status" id="warningsList">
+                  <div class="status-row"><span>Turnos y libres</span><span class="pill warn">Sin revisar</span></div>
+                  <div class="status-row"><span>Plateria sin duplicados</span><span class="pill warn">Sin revisar</span></div>
+                  <div class="status-row"><span>Personal de C colocado</span><span class="pill warn">Sin revisar</span></div>
+                  <div class="status-row"><span>Tareas de cierre</span><span class="pill warn">Sin revisar</span></div>
+                </div>
               </div>
             </div>
           </div>
@@ -1115,8 +1146,8 @@ function showApp() {
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
-    const STORAGE_KEY = 'chamasesor-borrador-v26-plateria-cierre-t-rango3';
-    const APP_VERSION = '2026-06-26-2115-plateria-cierre-t-rango3';
+    const STORAGE_KEY = 'chamasesor-borrador-v31-relevo-c-mismo-rango';
+    const APP_VERSION = '2026-06-26-2255-relevo-c-mismo-rango';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -1184,6 +1215,7 @@ function showApp() {
         weekName: document.getElementById('weekName').value,
         serviceDate: document.getElementById('serviceDate').value,
         mediterraneo: document.getElementById('mediterraneo').value,
+        mediterraneoManual: document.getElementById('mediterraneoManual').value,
         notes: document.getElementById('notes').value,
         ranges: state.ranges,
         silverCreated: state.silverCreated,
@@ -1247,6 +1279,7 @@ function showApp() {
       document.getElementById('weekName').value = draft.weekName || document.getElementById('weekName').value;
       document.getElementById('serviceDate').value = draft.serviceDate || document.getElementById('serviceDate').value;
       document.getElementById('mediterraneo').value = draft.mediterraneo || document.getElementById('mediterraneo').value;
+      document.getElementById('mediterraneoManual').value = draft.mediterraneoManual || '';
       document.getElementById('notes').value = draft.notes || '';
       state.ranges = Number(draft.ranges || state.ranges);
       state.silverCreated = Boolean(draft.silverCreated);
@@ -1833,6 +1866,7 @@ function showApp() {
       setSelectedServiceDate(button.dataset.date, true);
     });
     document.getElementById('mediterraneo').addEventListener('change', saveDraft);
+    document.getElementById('mediterraneoManual').addEventListener('input', saveDraft);
     document.getElementById('notes').addEventListener('input', saveDraft);
 
     function mondayFromDateValue(dateValue) {
@@ -1943,6 +1977,8 @@ function showApp() {
     }
 
     function scheduledMediterraneoName(dayIndex) {
+      const manual = displayPerson(document.getElementById('mediterraneoManual')?.value || '');
+      if (manual) return manual;
       const fromExcel = displayPerson(state.weeklyMediterraneo?.[dayIndex]);
       if (fromExcel) return fromExcel;
       const dateValue = document.getElementById('serviceDate')?.value || '';
@@ -2060,6 +2096,15 @@ function showApp() {
       return '';
     }
 
+    function previousShiftForPerson(name, dayIndex) {
+      if (dayIndex <= 0) return '';
+      return shiftForPerson(name, dayIndex - 1);
+    }
+
+    function cameFromFree(name, dayIndex) {
+      return previousShiftForPerson(name, dayIndex) === 'L';
+    }
+
     function isTurnoT(name, dayIndex) {
       return shiftForPerson(name, dayIndex) === 'T';
     }
@@ -2097,9 +2142,11 @@ function showApp() {
       const rotationStep = group === 'ayudantes' ? -dayIndex : dayIndex;
       const target = (slotIndexFor(group, slotText) + rotationStep + available.length) % available.length;
       const pairIsT = isTurnoT(pairName, dayIndex);
-      const selected = [...available].sort((a, b) => {
+      const noDoubleT = pairIsT ? available.filter((person) => person.shift !== 'T') : [];
+      const candidates = noDoubleT.length ? noDoubleT : available;
+      const selected = [...candidates].sort((a, b) => {
         const score = (person) => {
-          let value = circularDistance(person.index % available.length, target, available.length);
+          let value = circularDistance(person.index % candidates.length, target, candidates.length);
           if (service === 'almuerzo') {
             const pairShift = shiftForPerson(pairName, dayIndex);
             const pairCoversOpening = coversTime(pairShift, 13);
@@ -2112,6 +2159,7 @@ function showApp() {
             if (person.shift === 'T' && ['1', '3'].includes(slotText)) value -= 18;
           }
           if (service === 'cena' && person.shift === 'T' && preferredTSlot) value -= 18;
+          if (service === 'cena' && ['1', '3'].includes(slotText) && person.shift !== 'T' && coversTime(person.shift, 21.75) && cameFromFree(person.name, dayIndex)) value -= 30;
           if (service !== 'almuerzo' && person.shift === 'T' && !preferredTSlot) value += 50;
           if (pairIsT && person.shift === 'T') value += 80;
           return value;
@@ -2162,10 +2210,35 @@ function showApp() {
         .filter((person) => person.shift === 'T');
       if (!candidates.length) return '';
       const selected = candidates.sort((a, b) => {
-        const score = (person) => (normalizePerson(person.name) === 'marina' ? -20 : 0) + person.index;
+        const score = (person) => {
+          let value = person.index;
+          if (normalizePerson(person.name) === 'marina') value -= 20;
+          return value;
+        };
         return score(a) - score(b);
       })[0];
       usedCamareros.add(normalizePerson(selected.name));
+      return selected.name;
+    }
+
+    function pickCameFromFreeClosingCam(dayIndex, usedCamareros) {
+      const candidates = peopleCandidatesForService('camareros', dayIndex, 'cena', usedCamareros)
+        .filter((person) => person.shift !== 'T' && coversTime(person.shift, 21.75))
+        .filter((person) => cameFromFree(person.name, dayIndex));
+      if (!candidates.length) return '';
+      const selected = candidates.sort((a, b) => a.index - b.index)[0];
+      usedCamareros.add(normalizePerson(selected.name));
+      return selected.name;
+    }
+
+    function pickNamedForService(group, dayIndex, service, usedPeople, expectedName, extraFilter = () => true) {
+      const expected = normalizePerson(expectedName);
+      if (!expected) return '';
+      const selected = peopleCandidatesForService(group, dayIndex, service, usedPeople)
+        .filter(extraFilter)
+        .find((person) => normalizePerson(person.name) === expected);
+      if (!selected) return '';
+      usedPeople.add(normalizePerson(selected.name));
       return selected.name;
     }
 
@@ -2214,12 +2287,18 @@ function showApp() {
 
     function pickLunchReliefCam(openingCam, dayIndex, usedCamareros) {
       const openingShift = shiftForPerson(openingCam, dayIndex);
-      const window = shiftWindow(openingShift);
-      if (!window || window.end > 15) return '';
+      if (!['M7', 'M2', 'M7R', 'M8R'].includes(openingShift)) return '';
       const candidates = peopleCandidatesForService('camareros', dayIndex, 'almuerzo', usedCamareros)
         .filter((person) => person.shift === 'C');
       if (!candidates.length) return '';
-      const selected = candidates.sort((a, b) => a.index - b.index)[0];
+      const selected = candidates.sort((a, b) => {
+        const score = (person) => {
+          let value = person.index;
+          if (cameFromFree(person.name, dayIndex)) value -= 35;
+          return value;
+        };
+        return score(a) - score(b);
+      })[0];
       usedCamareros.add(normalizePerson(selected.name));
       return selected.name;
     }
@@ -2521,21 +2600,25 @@ function showApp() {
       const lunch3 = helper('almuerzo', '3', 5, lunchCam3);
       const lunch3Relief = pickLunchReliefHelper(lunch3, dayIndex, usedHelpersByService.almuerzo);
       const lunchTerrace = pickLunchTerracePerson(dayIndex, usedCamarerosByService.almuerzo, usedHelpersByService.almuerzo) || empty;
-      const dinnerCam1 = repeatOrPick('camareros', breakfastCam1, 'cena', usedCamarerosByService.cena, '1', '', 8);
+      const dinnerCam1 = pickCameFromFreeClosingCam(dayIndex, usedCamarerosByService.cena)
+        || repeatOrPick('camareros', breakfastCam1, 'cena', usedCamarerosByService.cena, '1', '', 8);
       const dinner1 = repeatOrPick('ayudantes', breakfast1, 'cena', usedHelpersByService.cena, '1', dinnerCam1, 6);
       const putTInRange3 = state.ranges === 3 && reservedDinnerTCam && !reservedPoviSupport;
       const dinnerCam2 = putTInRange3
-        ? (repeatOrPick('camareros', breakfastCam2, 'cena', usedCamarerosByService.cena, '2', '', 9) || pickDinnerClosingCam(dayIndex, usedCamarerosByService.cena, 9))
+        ? (pickDinnerClosingCam(dayIndex, usedCamarerosByService.cena, 9)
+          || repeatOrPick('camareros', breakfastCam2, 'cena', usedCamarerosByService.cena, '2', '', 9))
         : (reservedDinnerTCam || repeatOrPick('camareros', breakfastCam2, 'cena', usedCamarerosByService.cena, '2', '', 9));
       const dinner2 = !putTInRange3 && reservedDinnerTCam
         ? (pickDinnerClosingHelper(dayIndex, usedHelpersByService.cena, 7) || repeatOrPick('ayudantes', breakfast2, 'cena', usedHelpersByService.cena, '2', dinnerCam2, 7))
-        : repeatOrPick('ayudantes', breakfast2, 'cena', usedHelpersByService.cena, '2', dinnerCam2, 7);
-      const dinnerCam3Base = repeatOrPick('camareros', breakfastCam3, 'cena', usedCamarerosByService.cena, '3', '', 10)
+        : (putTInRange3
+          ? (pickDinnerClosingHelper(dayIndex, usedHelpersByService.cena, 7) || repeatOrPick('ayudantes', breakfast2, 'cena', usedHelpersByService.cena, '2', dinnerCam2, 7))
+          : repeatOrPick('ayudantes', breakfast2, 'cena', usedHelpersByService.cena, '2', dinnerCam2, 7));
+      const dinnerCam3Base = (putTInRange3 ? '' : repeatOrPick('camareros', breakfastCam3, 'cena', usedCamarerosByService.cena, '3', '', 10))
         || pickDinnerClosingCam(dayIndex, usedCamarerosByService.cena, 10);
-      const dinnerCam3 = putTInRange3 ? peopleLabel([dinnerCam3Base, reservedDinnerTCam]) : dinnerCam3Base;
+      const dinnerCam3 = putTInRange3 ? peopleLabel([dinnerCam3Base || pending, reservedDinnerTCam]) : dinnerCam3Base;
       const dinner3ClosingHelper = reservedPoviSupport
         ? (pickDinnerClosingHelper(dayIndex, usedHelpersByService.cena, 8) || repeatOrPick('ayudantes', breakfast3, 'cena', usedHelpersByService.cena, '3', dinnerCam3, 8))
-        : repeatOrPick('ayudantes', breakfast3, 'cena', usedHelpersByService.cena, '3', dinnerCam3, 8);
+        : (putTInRange3 ? pickDinnerClosingHelper(dayIndex, usedHelpersByService.cena, 8) : repeatOrPick('ayudantes', breakfast3, 'cena', usedHelpersByService.cena, '3', dinnerCam3, 8));
       const dinner3 = reservedPoviSupport ? peopleLabel([reservedPoviSupport, dinner3ClosingHelper]) : dinner3ClosingHelper;
       const dinnerCam4 = repeatOrPick('camareros', breakfastCam4, 'cena', usedCamarerosByService.cena, '4', '', 11);
       const dinner4 = repeatOrPick('ayudantes', breakfast4, 'cena', usedHelpersByService.cena, '4', dinnerCam4, 9);
@@ -2543,7 +2626,7 @@ function showApp() {
         dayIndex,
         usedCamarerosByService.cena,
         usedHelpersByService.cena
-      ) || empty;
+      ) || pending;
       const breakfastResp1 = responsable('desayuno', 0);
       const breakfastResp2 = responsable('desayuno', 1);
       const lunchResp = responsable('almuerzo', 2);
@@ -2810,9 +2893,12 @@ function showApp() {
         const nameEl = chip.querySelector('.person-name');
         if (!nameEl) return;
         const name = displayPerson(nameEl.textContent);
+        const manualBadge = Array.from(chip.querySelectorAll('.shift-badge'))
+          .map((badge) => badge.textContent.trim().toUpperCase())
+          .find(Boolean) || '';
         nameEl.textContent = name;
         chip.querySelectorAll('.shift-badge').forEach((badge) => badge.remove());
-        const shift = specialShiftForDisplay(name);
+        const shift = specialShiftForDisplay(name) || manualBadge;
         if (shift) {
           chip.insertAdjacentHTML('beforeend', ` <span class="shift-badge" contenteditable="false">${shift}</span>`);
         }
@@ -2825,7 +2911,7 @@ function showApp() {
         item.contentEditable = enabled ? 'true' : 'false';
       });
       board.querySelectorAll('.shift-badge').forEach((badge) => {
-        badge.contentEditable = 'false';
+        badge.contentEditable = enabled ? 'true' : 'false';
       });
       document.querySelectorAll('.task-input').forEach((input) => {
         if (enabled) input.value = plainEditableText(input.value);
@@ -3049,6 +3135,22 @@ function showApp() {
       `).join('');
     }
 
+    function activateCheckTab(tabName) {
+      const selected = tabName === 'warnings' ? 'warnings' : 'status';
+      document.querySelectorAll('.check-tab').forEach((button) => {
+        button.classList.toggle('active', button.dataset.checkTab === selected);
+      });
+      document.getElementById('statusCheckView').hidden = selected !== 'status';
+      document.getElementById('warningsCheckView').hidden = selected !== 'warnings';
+    }
+
+    function openChecksPanel(tabName = 'status') {
+      const panel = document.getElementById('checksPanel');
+      panel.hidden = false;
+      activateCheckTab(tabName);
+      return panel;
+    }
+
     function reviewPrintWarnings() {
       updateStatus();
       const missing = [];
@@ -3061,6 +3163,7 @@ function showApp() {
       }
       const warnings = collectPrintWarnings();
       displayWarnings(warnings);
+      openChecksPanel('warnings');
       if (warnings.length) {
         warnings.forEach((item) => appendLog(`Aviso: ${item}`));
       } else {
@@ -3256,9 +3359,16 @@ function showApp() {
     document.getElementById('beforePrintBtn').addEventListener('click', () => {
       const panel = document.getElementById('printPanel');
       panel.hidden = !panel.hidden;
+      const checksPanel = openChecksPanel('status');
       appendLog(panel.hidden ? 'Opciones de impresion cerradas.' : 'Opciones antes de imprimir abiertas.');
-      if (!panel.hidden) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (!panel.hidden) checksPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
       saveDraft();
+    });
+
+    document.querySelectorAll('.check-tab').forEach((button) => {
+      button.addEventListener('click', () => {
+        activateCheckTab(button.dataset.checkTab);
+      });
     });
 
     document.getElementById('adminBtn').addEventListener('click', () => {
