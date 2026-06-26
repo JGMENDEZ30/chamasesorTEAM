@@ -504,6 +504,27 @@
       vertical-align: middle;
       white-space: nowrap;
     }
+    .person-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 100%;
+      vertical-align: middle;
+    }
+    .person-name {
+      min-width: 2ch;
+      outline: 0;
+    }
+    .editing .person-name {
+      padding: 1px 3px;
+      border-radius: 4px;
+      background: #fff;
+      box-shadow: inset 0 0 0 1px #bae6fd;
+    }
+    .editing .shift-badge {
+      pointer-events: none;
+      user-select: none;
+    }
     .relief-mark {
       display: inline-flex;
       align-items: center;
@@ -1094,8 +1115,8 @@ function showApp() {
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
-    const STORAGE_KEY = 'chamasesor-borrador-v20-edicion-relevos-t';
-    const APP_VERSION = '2026-06-26-1920-edicion-relevos-t';
+    const STORAGE_KEY = 'chamasesor-borrador-v21-chapas-separadas-edicion';
+    const APP_VERSION = '2026-06-26-1940-chapas-separadas-edicion';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -2743,15 +2764,30 @@ function showApp() {
         .trim();
     }
 
+    function refreshShiftBadges() {
+      board.querySelectorAll('.person-chip').forEach((chip) => {
+        const nameEl = chip.querySelector('.person-name');
+        if (!nameEl) return;
+        const name = displayPerson(nameEl.textContent);
+        nameEl.textContent = name;
+        chip.querySelectorAll('.shift-badge').forEach((badge) => badge.remove());
+        const shift = specialShiftForDisplay(name);
+        if (shift) {
+          chip.insertAdjacentHTML('beforeend', ` <span class="shift-badge" contenteditable="false">${shift}</span>`);
+        }
+      });
+    }
+
     function setBoardEditing(enabled) {
       board.classList.toggle('editing', enabled);
-      board.querySelectorAll('.range strong, .note strong, .range b, .task-row span').forEach((item) => {
-        if (enabled && item.matches('.range strong, .note strong')) {
-          item.textContent = plainEditableText(item.textContent);
-        }
+      board.querySelectorAll('.person-name, .range b, .task-row span').forEach((item) => {
         item.contentEditable = enabled ? 'true' : 'false';
       });
+      board.querySelectorAll('.shift-badge').forEach((badge) => {
+        badge.contentEditable = 'false';
+      });
       document.querySelectorAll('.task-input').forEach((input) => {
+        if (enabled) input.value = plainEditableText(input.value);
         input.disabled = !enabled;
       });
       document.getElementById('editBoardBtn').disabled = enabled;
@@ -2792,7 +2828,7 @@ function showApp() {
         return parts.map((part) => personWithShiftBadge(part)).join(' / ');
       }
       const shift = specialShiftForDisplay(text);
-      return `${escapeAttr(text)}${shift ? ` <span class="shift-badge">${shift}</span>` : ''}`;
+      return `<span class="person-chip"><span class="person-name">${escapeAttr(text)}</span>${shift ? ` <span class="shift-badge" contenteditable="false">${shift}</span>` : ''}</span>`;
     }
 
     function taskValueWithShift(value) {
@@ -3157,6 +3193,7 @@ function showApp() {
 
     document.getElementById('saveBoardEditBtn').addEventListener('click', () => {
       editableBoardValues();
+      refreshShiftBadges();
       setBoardEditing(false);
       appendLog('Cambios del cuadrante guardados. La impresion usara esta version corregida.');
       saveDraft();
