@@ -504,6 +504,21 @@
       vertical-align: middle;
       white-space: nowrap;
     }
+    .relief-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 5px;
+      color: #334155;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .relief-mark::before {
+      content: '→';
+      color: #0369a1;
+      font-size: 14px;
+      line-height: 1;
+    }
     .task-input.has-shift {
       color: #0f172a;
       background: #f8fafc;
@@ -1079,8 +1094,8 @@ function showApp() {
     const statusList = document.getElementById('statusList');
     const board = document.getElementById('board');
     const actionFeedback = document.getElementById('actionFeedback');
-    const STORAGE_KEY = 'chamasesor-borrador-v19-t-rango2-povi-apoyo';
-    const APP_VERSION = '2026-06-26-1845-t-rango2-povi-apoyo';
+    const STORAGE_KEY = 'chamasesor-borrador-v20-edicion-relevos-t';
+    const APP_VERSION = '2026-06-26-1920-edicion-relevos-t';
 
     function fileLabel(file) {
       if (!file) return null;
@@ -2590,8 +2605,8 @@ function showApp() {
           </article>
           <article class="service">
             <h4>Almuerzo</h4>
-            ${range('1', 'Rango 1', lunchCam1, lunch1)}
-            ${range('3', 'Rango 3', lunchCam3, lunch3)}
+            ${rangeWithRelief('1', 'Rango 1', lunchCam1, lunchCam1Relief, lunch1, lunch1Relief)}
+            ${rangeWithRelief('3', 'Rango 3', lunchCam3, lunchCam3Relief, lunch3, lunch3Relief)}
             ${range('T', 'Terraza', lunchTerrace, '')}
             <div class="notes">
               ${note('Plateria almuerzo', silverLunch)}
@@ -2667,6 +2682,30 @@ function showApp() {
       `;
     }
 
+    function reliefText(opening, relief) {
+      const openingName = displayPerson(opening);
+      const reliefName = displayPerson(relief);
+      if (!openingName) return '';
+      if (!reliefName) return personWithShiftBadge(openingName);
+      return `${personWithShiftBadge(openingName)} <span class="relief-mark">${personWithShiftBadge(reliefName)}</span>`;
+    }
+
+    function rangeWithRelief(code, title, first, firstRelief, second, secondRelief) {
+      const firstName = displayPerson(first);
+      const secondName = displayPerson(second);
+      const secondLine = secondName ? `<div class="line"><span>Ayudant@</span><strong>${reliefText(secondName, secondRelief)}</strong></div>` : '';
+      return `
+        <div class="range">
+          <div class="range-code">${code}</div>
+          <div class="range-body">
+            <b>${title}</b>
+            <div class="line"><span>Camarer@</span><strong>${reliefText(firstName, firstRelief)}</strong></div>
+            ${secondLine}
+          </div>
+        </div>
+      `;
+    }
+
     function note(title, value) {
       return `<div class="note"><span>${title}</span><strong>${personWithShiftBadge(value)}</strong></div>`;
     }
@@ -2695,9 +2734,21 @@ function showApp() {
       });
     }
 
+    function plainEditableText(value) {
+      return String(value || '')
+        .replace(/\s*→\s*/g, ' -> ')
+        .replace(/\b(M7R|M8R|M7|M2|T|C)\b/g, '')
+        .replace(/\s+\/\s+/g, ' / ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
     function setBoardEditing(enabled) {
       board.classList.toggle('editing', enabled);
       board.querySelectorAll('.range strong, .note strong, .range b, .task-row span').forEach((item) => {
+        if (enabled && item.matches('.range strong, .note strong')) {
+          item.textContent = plainEditableText(item.textContent);
+        }
         item.contentEditable = enabled ? 'true' : 'false';
       });
       document.querySelectorAll('.task-input').forEach((input) => {
